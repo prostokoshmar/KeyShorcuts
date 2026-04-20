@@ -71,20 +71,22 @@ final class MenuBarHider: NSObject {
         guard let btn = dividerItem?.button,
               let win = btn.window else { return }
 
-        // Use the screen that actually contains the status item window.
         let screen = win.screen
             ?? NSScreen.screens.first(where: { $0.frame.intersects(win.frame) })
             ?? NSScreen.main!
 
         let menuBarH = NSStatusBar.system.thickness
 
-        // Cover from left screen edge to the divider's left edge.
-        // ignoresMouseEvents = true so the Apple menu and app menus under the cover remain clickable.
-        let width = win.frame.minX - screen.frame.minX
+        // Start the cover just after where the frontmost app's menus end,
+        // so we don't blank out File/Edit/etc. — only the status-item zone.
+        let appMenuEnd = appMenusRightEdge()
+        let coverLeft  = max(screen.frame.minX, appMenuEnd)
+        let coverRight = win.frame.minX
+        let width = coverRight - coverLeft
         guard width > 1 else { return }
 
         let coverRect = NSRect(
-            x: screen.frame.minX,
+            x: coverLeft,
             y: screen.frame.maxY - menuBarH,
             width: width,
             height: menuBarH
@@ -112,6 +114,31 @@ final class MenuBarHider: NSObject {
 
         panel.orderFrontRegardless()
         coverPanel = panel
+    }
+
+    // Use Accessibility (already granted) to find the right edge of the frontmost
+    // app's menu bar items, so the cover starts there instead of at x=0.
+    private func appMenusRightEdge() -> CGFloat {
+        guard let frontApp = NSWorkspace.shared.frontmostApplication else { return 400 }
+        let axApp = AXUIElementCreateApplication(frontApp.processIdentifier)
+        var mbRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(axApp, kAXMenuBarAttribute as CFString, &mbRef) == .success,
+              CFGetTypeID(mbRef!) == AXUIElementGetTypeID() else { return 400 }
+        let menuBar = mbRef as! AXUIElement
+        var childRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(menuBar, kAXChildrenAttribute as CFString, &childRef) == .success,
+              let children = childRef as? [AXUIElement] else { return 400 }
+
+        var rightmost: CGFloat = 0
+        for child in children {
+            var frameRef: AnyObject?
+            guard AXUIElementCopyAttributeValue(child, "AXFrame" as CFString, &frameRef) == .success,
+                  let axVal = frameRef as! AXValue? else { continue }
+            var rect = CGRect.zero
+            AXValueGetValue(axVal, .cgRect, &rect)
+            rightmost = max(rightmost, rect.maxX)
+        }
+        return rightmost > 0 ? rightmost + 12 : 400  // 12 px breathing room
     }
 
     private func hideCover() {
