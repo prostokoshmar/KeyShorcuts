@@ -173,7 +173,7 @@ private struct MenuBarTab: View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Menu Bar Hider").font(.headline)
-                Text("Adds a divider button (‹‹) to your menu bar. Drag other icons to the left of it with ⌘, then click the divider to hide them.")
+                Text("Adds a ‹ divider to your menu bar. Items to its left are hidden when you click Hide. ⌘-drag the divider to reposition it between the items you want to hide and the ones you want to keep visible.")
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -205,9 +205,10 @@ private struct MenuBarTab: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 Label("How to use", systemImage: "lightbulb").font(.subheadline.weight(.medium))
-                Text(#"1. Click "Add Divider to Menu Bar""#)
-                Text("2. Hold ⌘ and drag icons to the left of the ‹‹ divider")
-                Text("3. Click ‹‹ to hide those icons; click ›› to reveal them")
+                Text("1. Click \"Add Divider to Menu Bar\"")
+                Text("2. ⌘-drag the ‹ divider between visible and hidden icons")
+                Text("3. Click the divider → Hide Items to the Left")
+                Text("4. Click again → Show Hidden Items to reveal them")
             }
             .font(.caption).foregroundStyle(.secondary)
 
