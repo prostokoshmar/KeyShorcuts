@@ -1,0 +1,12 @@
+.build/
+*.o
+*.d
+*.swp
+*.DS_Store
+dmg_staging_tmp/
+KeyShortcuts.iconset/
+AppIcon.icns
+KeyShortcuts.app/
+KeyShortcuts.dmg
+KeyShortcuts_adhoc.dmg
+KeyShortcuts-*.zip
