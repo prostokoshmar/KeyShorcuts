@@ -118,13 +118,14 @@ final class AutoUpdater {
 
             let currentApp = Bundle.main.bundleURL
 
-            // Shell script: wait for quit → replace → re-sign → relaunch
+            // Wait for this process to quit, then replace and relaunch.
+            // Do NOT re-sign: the zip already carries the build signature; re-signing
+            // with a new ad-hoc hash would revoke macOS Accessibility/Input Monitoring access.
             let script = """
-            sleep 1.5
+            sleep 2
             rm -rf '\(currentApp.path)'
             cp -R '\(newApp.path)' '\(currentApp.path)'
-            codesign --force --deep --sign - '\(currentApp.path)' 2>/dev/null || true
-            open '\(currentApp.path)'
+            open -n '\(currentApp.path)'
             """
             let task = Process()
             task.launchPath = "/bin/sh"
