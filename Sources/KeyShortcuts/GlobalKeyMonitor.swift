@@ -61,51 +61,12 @@ class GlobalKeyMonitor {
     }
 
     private func showPermissionError() {
-        let hasAccessibility = AXIsProcessTrusted()
-
-        let alert = NSAlert()
-        alert.alertStyle = .warning
-
-        if hasAccessibility {
-            alert.messageText = "Input Monitoring Permission Required"
-            alert.informativeText = """
-                Key Shortcuts needs Input Monitoring access to detect when you hold the trigger key.
-
-                You already granted Accessibility — now please also add Key Shortcuts in:
-                System Settings → Privacy & Security → Input Monitoring
-
-                After adding it, relaunch the app.
-                """
-            alert.addButton(withTitle: "Open Input Monitoring Settings")
-            alert.addButton(withTitle: "Quit")
-            if alert.runModal() == .alertFirstButtonReturn {
-                NSWorkspace.shared.open(
-                    URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")!
-                )
-            }
-        } else {
-            alert.messageText = "Permissions Required"
-            alert.informativeText = """
-                Key Shortcuts needs two permissions:
-
-                1. Accessibility — to read shortcuts from other apps
-                   System Settings → Privacy & Security → Accessibility
-
-                2. Input Monitoring — to detect the trigger key
-                   System Settings → Privacy & Security → Input Monitoring
-
-                Grant both, then relaunch the app.
-                """
-            alert.addButton(withTitle: "Open Privacy Settings")
-            alert.addButton(withTitle: "Quit")
-            if alert.runModal() == .alertFirstButtonReturn {
-                NSWorkspace.shared.open(
-                    URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
-                )
-            }
+        // Don't terminate — clipboard history and menu bar hider still work without
+        // key monitoring. Post a notification so the menu shows a one-click fix link.
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .keyMonitorPermissionFailed,
+                                            object: AXIsProcessTrusted())
         }
-
-        NSApp.terminate(nil)
     }
 
     // Returns true when only the configured trigger key is active (no other modifiers).

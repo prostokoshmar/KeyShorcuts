@@ -98,22 +98,72 @@ final class MenuBarHider: NSObject {
             backing: .buffered,
             defer: false
         )
-        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 1)
+        panel.level = .statusBar
         panel.hasShadow = false
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
+        panel.isOpaque = true
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         panel.ignoresMouseEvents = true
 
-        let vfx = NSVisualEffectView(frame: NSRect(origin: .zero, size: coverRect.size))
-        vfx.material = .menu
-        vfx.state = .active
-        vfx.blendingMode = .behindWindow
-        vfx.autoresizingMask = [.width, .height]
-        panel.contentView?.addSubview(vfx)
+        // Use the desktop wallpaper cropped to the cover area — same technique as Ice.
+        // No Screen Recording permission needed; NSWorkspace gives us the image URL directly.
+        if let bg = wallpaperImage(for: coverRect, screen: screen) {
+            let iv = NSImageView(frame: NSRect(origin: .zero, size: coverRect.size))
+            iv.image = bg
+            iv.imageScaling = .scaleAxesIndependently
+            iv.autoresizingMask = [.width, .height]
+            panel.contentView?.addSubview(iv)
+            panel.isOpaque = true
+            panel.backgroundColor = .clear
+        } else {
+            // Fallback: solid menu-bar-coloured visual effect view
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            let vfx = NSVisualEffectView(frame: NSRect(origin: .zero, size: coverRect.size))
+            vfx.material = .menu
+            vfx.state = .active
+            vfx.blendingMode = .behindWindow
+            vfx.autoresizingMask = [.width, .height]
+            panel.contentView?.addSubview(vfx)
+        }
 
         panel.orderFrontRegardless()
         coverPanel = panel
+    }
+
+    // Crops the desktop wallpaper to the given screen rect (menu-bar slice).
+    // Returns nil when the image can't be loaded; caller falls back to NSVisualEffectView.
+    private func wallpaperImage(for coverRect: NSRect, screen: NSScreen) -> NSImage? {
+        guard let url = NSWorkspace.shared.desktopImageURL(for: screen),
+              let full = NSImage(contentsOf: url) else { return nil }
+
+        let sf = screen.frame
+        let imgSize = full.size
+        // Compute how the wallpaper maps onto the screen (Fill / scale-to-fill).
+        let scaleX = imgSize.width  / sf.width
+        let scaleY = imgSize.height / sf.height
+        let scale  = max(scaleX, scaleY)           // fill: largest axis wins
+        let scaledW = imgSize.width  / scale
+        let scaledH = imgSize.height / scale
+        // Offset into the image when centred on screen.
+        let ox = (scaledW - sf.width)  / 2
+        let oy = (scaledH - sf.height) / 2
+
+        // coverRect is in screen coords (AppKit, origin bottom-left).
+        // Convert to image coords (also bottom-left after the flip).
+        let cropX = (coverRect.minX - sf.minX + ox) * scale
+        let cropY = (coverRect.minY - sf.minY + oy) * scale
+        let cropW = coverRect.width  * scale
+        let cropH = coverRect.height * scale
+
+        let srcRect = NSRect(x: cropX, y: cropY, width: cropW, height: cropH)
+        let cropped = NSImage(size: coverRect.size)
+        cropped.lockFocus()
+        full.draw(in: NSRect(origin: .zero, size: coverRect.size),
+                  from: srcRect,
+                  operation: .copy,
+                  fraction: 1)
+        cropped.unlockFocus()
+        return cropped
     }
 
     // Use Accessibility (already granted) to find the right edge of the frontmost

@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var keepAwakeAssertionID: IOPMAssertionID = 0
     private var keepAwakeEnabled = false
     private weak var keepAwakeMenuItem: NSMenuItem?
+    private weak var permissionMenuItem: NSMenuItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
@@ -48,7 +49,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.toggleKeepAwake()
             }
         )
-        requestAccessibilityPermissions()
+        // If the key monitor fails (permissions revoked after update), add a menu reminder.
+        NotificationCenter.default.addObserver(
+            forName: .keyMonitorPermissionFailed, object: nil, queue: .main
+        ) { [weak self] note in
+            let hasAX = note.object as? Bool ?? false
+            self?.showPermissionReminder(hasAccessibility: hasAX)
+        }
 
         // Check for updates silently 8 seconds after launch
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
@@ -128,11 +135,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         preferencesWindow = window
     }
 
-    private func requestAccessibilityPermissions() {
-        if !AXIsProcessTrusted() {
-            let options: CFDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
-            AXIsProcessTrustedWithOptions(options)
-        }
+    private func showPermissionReminder(hasAccessibility: Bool) {
+        guard permissionMenuItem == nil else { return }
+        let url = hasAccessibility
+            ? "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
+            : "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+        let title = hasAccessibility
+            ? "⚠ Grant Input Monitoring Access…"
+            : "⚠ Grant Accessibility Access…"
+        let item = NSMenuItem(title: title, action: #selector(openPrivacySettings), keyEquivalent: "")
+        item.representedObject = url
+        statusItem.menu?.insertItem(item, at: 0)
+        statusItem.menu?.insertItem(.separator(), at: 1)
+        permissionMenuItem = item
+    }
+
+    @objc private func openPrivacySettings(_ sender: NSMenuItem) {
+        guard let urlString = sender.representedObject as? String,
+              let url = URL(string: urlString) else { return }
+        NSWorkspace.shared.open(url)
     }
 
 }

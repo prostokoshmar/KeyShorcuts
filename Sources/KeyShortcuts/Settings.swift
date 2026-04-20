@@ -144,4 +144,5 @@ extension Notification.Name {
     static let clipboardPollingIntervalChanged  = Notification.Name("clipboardPollingIntervalChanged")
     static let autoSelectCopyChanged             = Notification.Name("autoSelectCopyChanged")
     static let autoSelectPollingIntervalChanged  = Notification.Name("autoSelectPollingIntervalChanged")
+    static let keyMonitorPermissionFailed        = Notification.Name("keyMonitorPermissionFailed")
 }
