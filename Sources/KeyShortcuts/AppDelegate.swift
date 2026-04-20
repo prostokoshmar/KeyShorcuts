@@ -64,27 +64,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let menu = NSMenu()
 
-        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(withTitle: "Clipboard History", action: #selector(toggleClipboardHistory), keyEquivalent: "")
-        menu.addItem(NSMenuItem.separator())
-
         let keepAwakeItem = NSMenuItem(title: "Keep Awake", action: #selector(toggleKeepAwake), keyEquivalent: "")
         keepAwakeItem.state = .off
         menu.addItem(keepAwakeItem)
         keepAwakeMenuItem = keepAwakeItem
 
+        menu.addItem(withTitle: "Clipboard History", action: #selector(toggleClipboardHistory), keyEquivalent: "")
         menu.addItem(NSMenuItem.separator())
-        menu.addItem(withTitle: "Preferences...", action: #selector(showPreferences), keyEquivalent: ",")
-        menu.addItem(NSMenuItem.separator())
-        menu.addItem(withTitle: "About Key Shortcuts", action: #selector(showAbout), keyEquivalent: "")
+        menu.addItem(withTitle: "Preferences…", action: #selector(showPreferences), keyEquivalent: ",")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Quit Key Shortcuts", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
-    }
-
-    @objc private func checkForUpdates() {
-        AutoUpdater.shared.checkWithUI()
     }
 
     @objc private func toggleClipboardHistory() {
@@ -145,7 +135,4 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func showAbout() {
-        NSApp.orderFrontStandardAboutPanel(nil)
-    }
 }

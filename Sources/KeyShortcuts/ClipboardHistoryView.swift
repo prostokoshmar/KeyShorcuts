@@ -125,6 +125,7 @@ struct ClipboardItemRowView: View {
     @State private var isHovered = false
     @State private var isEditing = false
     @State private var editText  = ""
+    @FocusState private var editorFocused: Bool
 
     var body: some View {
         Group {
@@ -150,6 +151,7 @@ struct ClipboardItemRowView: View {
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
                 )
+                .focused($editorFocused)
 
             HStack(spacing: 8) {
                 Button("Cancel") { isEditing = false }
@@ -196,6 +198,8 @@ struct ClipboardItemRowView: View {
                     Button {
                         if case .text(let s) = item.content { editText = s }
                         isEditing = true
+                        NSApp.activate(ignoringOtherApps: true)
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { editorFocused = true }
                     } label: {
                         Image(systemName: "pencil")
                             .font(.system(size: 12))

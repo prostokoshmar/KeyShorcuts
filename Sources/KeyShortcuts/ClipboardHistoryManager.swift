@@ -78,10 +78,11 @@ class ClipboardHistoryManager: ObservableObject {
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
         var focusedRef: AnyObject?
         guard AXUIElementCopyAttributeValue(axApp, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
-              let focused = focusedRef else { return }
+              let focused = focusedRef,
+              CFGetTypeID(focused) == AXUIElementGetTypeID() else { return }
+        let focusedElement = focused as! AXUIElement // safe: CFTypeID verified above
         var selectedRef: AnyObject?
-        // swiftlint:disable:next force_cast
-        guard AXUIElementCopyAttributeValue(focused as! AXUIElement,
+        guard AXUIElementCopyAttributeValue(focusedElement,
                                             kAXSelectedTextAttribute as CFString,
                                             &selectedRef) == .success,
               let text = selectedRef as? String,
