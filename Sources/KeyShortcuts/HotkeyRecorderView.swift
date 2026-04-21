@@ -42,7 +42,7 @@ struct HotkeyRecorderView: View {
             let standard: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
             guard !mods.intersection(standard).isEmpty else { return nil }
 
-            let char = event.charactersIgnoringModifiers?.uppercased() ?? "\(event.keyCode)"
+            let char = Self.keyName(for: event)
             self.hotkey = ClipboardHotkey(keyCode: Int(event.keyCode), keyChar: char, modifiers: mods.rawValue)
             // Persistence is handled by AppSettings.didSet
             self.isRecording = false
@@ -53,5 +53,24 @@ struct HotkeyRecorderView: View {
     private func stopMonitor() {
         if let m = monitor { NSEvent.removeMonitor(m); monitor = nil }
         isRecording = false
+    }
+
+    private static func keyName(for event: NSEvent) -> String {
+        switch event.keyCode {
+        case 49:  return "Space"
+        case 36:  return "↩"
+        case 48:  return "⇥"
+        case 51:  return "⌫"
+        case 117: return "⌦"
+        case 123: return "←"
+        case 124: return "→"
+        case 125: return "↓"
+        case 126: return "↑"
+        case 116: return "PgUp"
+        case 121: return "PgDn"
+        case 115: return "Home"
+        case 119: return "End"
+        default:  return event.charactersIgnoringModifiers?.uppercased() ?? "\(event.keyCode)"
+        }
     }
 }

@@ -7,6 +7,7 @@ class AppSwitcherOverlayWindowController {
     private var mouseMonitor: Any?
 
     func show() {
+        guard !isVisible else { return }
         let mouse = NSEvent.mouseLocation
         let apps  = Self.fetchRunningApps()
         guard !apps.isEmpty else { return }
@@ -38,13 +39,14 @@ class AppSwitcherOverlayWindowController {
     }
 
     func hide() {
+        guard isVisible else { return }
+        isVisible = false   // immediate so rapid keypresses don't desync state
         removeMouseMonitor()
         NSAnimationContext.runAnimationGroup({ ctx in
             ctx.duration = 0.15
             self.panel?.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             self?.panel?.orderOut(nil)
-            self?.isVisible = false
         })
     }
 
