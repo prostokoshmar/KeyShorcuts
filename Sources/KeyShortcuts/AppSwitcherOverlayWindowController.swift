@@ -11,7 +11,7 @@ class AppSwitcherOverlayWindowController {
         let apps  = Self.fetchRunningApps()
         guard !apps.isEmpty else { return }
 
-        let size   = AppSwitcherView.containerSize
+        let size   = AppSwitcherView.containerSize(for: apps.count)
         let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) })
                      ?? NSScreen.main ?? NSScreen.screens[0]
         let sf     = screen.frame
