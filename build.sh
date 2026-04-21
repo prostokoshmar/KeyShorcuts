@@ -90,17 +90,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << PLIST
 </plist>
 PLIST
 
-# Use a stable local certificate if available (run setup_cert.sh once to create it).
-# A stable identity means macOS keeps Accessibility/Input Monitoring grants between builds.
-LOCAL_CERT="KeyShortcuts Local"
-if security find-certificate -c "$LOCAL_CERT" ~/Library/Keychains/login.keychain-db &>/dev/null; then
-    echo "→ Code signing (local cert: $LOCAL_CERT)..."
-    codesign --force --deep --sign "$LOCAL_CERT" "$APP_BUNDLE" 2>/dev/null || \
-        codesign --force --deep --sign - "$APP_BUNDLE" 2>/dev/null || true
-else
-    echo "→ Code signing (ad-hoc — run ./setup_cert.sh once to stop privacy re-prompts)..."
-    codesign --force --deep --sign - "$APP_BUNDLE" 2>/dev/null || true
-fi
+echo "→ Code signing (ad-hoc)..."
+codesign --force --deep --sign - "$APP_BUNDLE" 2>/dev/null || true
 echo "✅ App bundle: ${APP_BUNDLE}"
 
 # ── DMG ─────────────────────────────────
