@@ -134,16 +134,6 @@ private struct ClipboardTab: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Text("Plain Paste").font(.headline)
-                    Toggle("Enable", isOn: $settings.plainPaste).toggleStyle(.switch)
-                    Text("Uses Paste and Match Style (⌥⇧⌘V) instead of ⌘V — strips source formatting to match destination.")
-                        .font(.caption).foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 10) {
                     Text("Auto-copy Selected Text").font(.headline)
                     Toggle("Enable", isOn: $settings.autoSelectCopy).toggleStyle(.switch)
                     Text("Adds selected text to history without ⌘C. One Accessibility call per tick — typically < 0.1 ms.")
