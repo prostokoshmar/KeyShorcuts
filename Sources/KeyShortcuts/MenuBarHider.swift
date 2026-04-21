@@ -15,11 +15,10 @@ final class MenuBarHider: NSObject {
     func install() {
         guard !isInstalled else { return }
         isInstalled = true
-
         dividerItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         guard let btn = dividerItem?.button else { return }
-        // "chevron.left" is available on every macOS version we support
-        btn.image = NSImage(systemSymbolName: "chevron.left", accessibilityDescription: "Menu bar divider")
+        btn.image = NSImage(systemSymbolName: "chevron.left",
+                            accessibilityDescription: "Menu bar divider")
         btn.image?.isTemplate = true
         btn.toolTip = "Click to hide/show items to the left  |  ⌘-drag to reposition"
         rebuildMenu()
@@ -27,12 +26,10 @@ final class MenuBarHider: NSObject {
 
     func uninstall() {
         hideCover()
-        if let item = dividerItem {
-            NSStatusBar.system.removeStatusItem(item)
-            dividerItem = nil
-        }
-        isInstalled = false
-        isCollapsed = false
+        if let item = dividerItem { NSStatusBar.system.removeStatusItem(item) }
+        dividerItem = nil
+        isInstalled  = false
+        isCollapsed  = false
         onStateChange?(false)
     }
 
@@ -44,18 +41,19 @@ final class MenuBarHider: NSObject {
         onStateChange?(isCollapsed)
     }
 
-    // MARK: - Private
+    // MARK: - Private helpers
 
     private func rebuildMenu() {
         let menu = NSMenu()
-        let actionTitle = isCollapsed ? "Show Hidden Items" : "Hide Items to the Left"
-        let actionItem = NSMenuItem(title: actionTitle, action: #selector(toggle), keyEquivalent: "")
-        actionItem.target = self
-        menu.addItem(actionItem)
+        let title = isCollapsed ? "Show Hidden Items" : "Hide Items to the Left"
+        let action = NSMenuItem(title: title, action: #selector(toggle), keyEquivalent: "")
+        action.target = self
+        menu.addItem(action)
         menu.addItem(.separator())
-        let removeItem = NSMenuItem(title: "Remove from Menu Bar", action: #selector(uninstallSelf), keyEquivalent: "")
-        removeItem.target = self
-        menu.addItem(removeItem)
+        let remove = NSMenuItem(title: "Remove from Menu Bar",
+                                action: #selector(uninstallSelf), keyEquivalent: "")
+        remove.target = self
+        menu.addItem(remove)
         dividerItem?.menu = menu
     }
 
@@ -63,67 +61,64 @@ final class MenuBarHider: NSObject {
 
     private func updateIcon() {
         let name = isCollapsed ? "chevron.right" : "chevron.left"
-        dividerItem?.button?.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
+        dividerItem?.button?.image = NSImage(systemSymbolName: name,
+                                             accessibilityDescription: nil)
         dividerItem?.button?.image?.isTemplate = true
     }
 
+    // MARK: - Cover panel
+
     private func showCover() {
-        guard let btn = dividerItem?.button,
-              let win = btn.window else { return }
+        guard let btn = dividerItem?.button, let win = btn.window else { return }
 
         let screen = win.screen
             ?? NSScreen.screens.first(where: { $0.frame.intersects(win.frame) })
             ?? NSScreen.main!
 
         let menuBarH = NSStatusBar.system.thickness
-
-        // Start the cover just after where the frontmost app's menus end,
-        // so we don't blank out File/Edit/etc. — only the status-item zone.
         let appMenuEnd = appMenusRightEdge()
         let coverLeft  = max(screen.frame.minX, appMenuEnd)
-        let coverRight = win.frame.minX
+        let coverRight = win.frame.minX          // left edge of our divider button
         let width = coverRight - coverLeft
         guard width > 1 else { return }
 
-        let coverRect = NSRect(
-            x: coverLeft,
-            y: screen.frame.maxY - menuBarH,
-            width: width,
-            height: menuBarH
-        )
+        // AppKit frame for the cover slice (bottom-left origin)
+        let coverRect = NSRect(x: coverLeft,
+                               y: screen.frame.maxY - menuBarH,
+                               width: width,
+                               height: menuBarH)
 
-        let panel = NSPanel(
-            contentRect: coverRect,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        // One level above .statusBar so the panel sits in front of the system's
-        // own menu bar window (which lives at statusWindow / statusBar level).
+        // ── Panel ────────────────────────────────────────────────────────────
+        let panel = NSPanel(contentRect: coverRect,
+                            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel],
+                            backing: .buffered,
+                            defer: false)
+        // One level above .statusBar so the panel sits in front of the menu bar window.
         panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 1)
-        panel.hasShadow = false
-        panel.isOpaque = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
+        panel.hasShadow       = false
+        panel.backgroundColor = .clear
+        panel.isOpaque        = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary,
+                                    .ignoresCycle, .fullScreenAuxiliary]
         panel.ignoresMouseEvents = true
 
-        // Use the desktop wallpaper cropped to the cover area — same technique as Ice.
-        // No Screen Recording permission needed; NSWorkspace gives us the image URL directly.
-        if let bg = wallpaperImage(for: coverRect, screen: screen) {
+        // ── Background using Ice's technique ─────────────────────────────────
+        // Capture the desktop wallpaper window (owned by Dock, below the desktop)
+        // cropped to the exact cover rect. No NSWorkspace file-load or manual
+        // crop math — we just ask CoreGraphics for what's visually there.
+        if let wallpaper = captureWallpaper(in: coverRect, screen: screen) {
             let iv = NSImageView(frame: NSRect(origin: .zero, size: coverRect.size))
-            iv.image = bg
-            iv.imageScaling = .scaleAxesIndependently
+            iv.image = NSImage(cgImage: wallpaper,
+                               size: coverRect.size)
+            iv.imageScaling   = .scaleAxesIndependently
             iv.autoresizingMask = [.width, .height]
             panel.contentView?.addSubview(iv)
-            panel.isOpaque = true
-            panel.backgroundColor = .clear
         } else {
-            // Fallback: solid menu-bar-coloured visual effect view
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
+            // Fallback: match the menu bar with a visual-effect view
             let vfx = NSVisualEffectView(frame: NSRect(origin: .zero, size: coverRect.size))
-            vfx.material = .menu
-            vfx.state = .active
-            vfx.blendingMode = .behindWindow
+            vfx.material       = .menu
+            vfx.state          = .active
+            vfx.blendingMode   = .behindWindow
             vfx.autoresizingMask = [.width, .height]
             panel.contentView?.addSubview(vfx)
         }
@@ -132,49 +127,61 @@ final class MenuBarHider: NSObject {
         coverPanel = panel
     }
 
-    // Crops the desktop wallpaper to the given screen rect (menu-bar slice).
-    // Returns nil when the image can't be loaded; caller falls back to NSVisualEffectView.
-    private func wallpaperImage(for coverRect: NSRect, screen: NSScreen) -> NSImage? {
-        guard let url = NSWorkspace.shared.desktopImageURL(for: screen),
-              let full = NSImage(contentsOf: url) else { return nil }
-
-        let sf = screen.frame
-        let imgW = full.size.width
-        let imgH = full.size.height
-
-        // "Fill Screen" scale: multiply image so the SMALLER screen-to-image ratio
-        // brings the image up to cover the full screen.  min() here = max coverage.
-        // (Using max() was a bug that under-scaled and produced out-of-bounds crops.)
-        let scale = min(imgW / sf.width, imgH / sf.height)
-        let scaledW = imgW / scale   // image dims when fitted to screen in "fill" mode
-        let scaledH = imgH / scale
-        // Half of the overflow that gets cropped off each edge.
-        let ox = (scaledW - sf.width)  / 2
-        let oy = (scaledH - sf.height) / 2
-
-        // coverRect is in AppKit screen coords (bottom-left origin).
-        // NSImage.draw(from:) also uses bottom-left, so no flip is needed —
-        // higher screen-y maps directly to higher image-y (both increase upward).
-        let cropX = (coverRect.minX - sf.minX + ox) * scale
-        let cropY = (coverRect.minY - sf.minY + oy) * scale
-        let cropW = coverRect.width  * scale
-        let cropH = coverRect.height * scale
-
-        guard cropX >= 0, cropY >= 0,
-              cropX + cropW <= imgW + 1,
-              cropY + cropH <= imgH + 1 else { return nil }
-
-        let srcRect = NSRect(x: cropX, y: cropY, width: cropW, height: cropH)
-        let cropped = NSImage(size: coverRect.size)
-        cropped.lockFocus()
-        full.draw(in: NSRect(origin: .zero, size: coverRect.size),
-                  from: srcRect, operation: .copy, fraction: 1)
-        cropped.unlockFocus()
-        return cropped
+    private func hideCover() {
+        coverPanel?.orderOut(nil)
+        coverPanel = nil
     }
 
-    // Use Accessibility (already granted) to find the right edge of the frontmost
-    // app's menu bar items, so the cover starts there instead of at x=0.
+    // MARK: - Wallpaper capture (Ice technique)
+
+    /// Captures the desktop wallpaper window cropped to `coverRect`.
+    /// `coverRect` is in AppKit screen coordinates (bottom-left origin).
+    /// Returns nil if the wallpaper window can't be found or captured.
+    private func captureWallpaper(in coverRect: NSRect, screen: NSScreen) -> CGImage? {
+        guard let list = CGWindowListCopyWindowInfo(
+                [.optionOnScreenOnly, .excludeDesktopElements],
+                kCGNullWindowID) as? [[String: Any]] else { return nil }
+
+        // CoreGraphics uses top-left origin; convert once.
+        let mainH = NSScreen.screens.first?.frame.height ?? screen.frame.height
+        let cgScreen = CGRect(x: screen.frame.minX,
+                              y: mainH - screen.frame.maxY,
+                              width: screen.frame.width,
+                              height: screen.frame.height)
+        let cgCover = CGRect(x: coverRect.minX,
+                             y: mainH - coverRect.maxY,
+                             width: coverRect.width,
+                             height: coverRect.height)
+
+        // Find the wallpaper window: owned by Dock, lives below the desktop (layer < 0).
+        var wallpaperID: CGWindowID?
+        for info in list {
+            guard (info[kCGWindowOwnerName as String] as? String) == "Dock",
+                  let layer = info[kCGWindowLayer as String] as? Int, layer < 0,
+                  let wid   = info[kCGWindowNumber as String] as? CGWindowID
+            else { continue }
+
+            // Pick the one that covers our screen.
+            if let bd = info[kCGWindowBounds as String] as? [String: CGFloat] {
+                let wf = CGRect(x: bd["X"] ?? 0, y: bd["Y"] ?? 0,
+                                width: bd["Width"] ?? 0, height: bd["Height"] ?? 0)
+                if cgScreen.intersects(wf) { wallpaperID = wid; break }
+            }
+        }
+        guard let wid = wallpaperID else { return nil }
+
+        // Capture that window, clipped to our cover slice.
+        // CGWindowListCreateImage is deprecated in macOS 14 but still functional and
+        // is the exact technique Ice uses for wallpaper capture without Screen Recording.
+        #if swift(>=5.9)
+        return CGWindowListCreateImage(cgCover, .optionIncludingWindow, wid, [])
+        #else
+        return CGWindowListCreateImage(cgCover, .optionIncludingWindow, wid, [])
+        #endif
+    }
+
+    // MARK: - App menu boundary
+
     private func appMenusRightEdge() -> CGFloat {
         guard let frontApp = NSWorkspace.shared.frontmostApplication else { return 400 }
         let axApp = AXUIElementCreateApplication(frontApp.processIdentifier)
@@ -190,16 +197,13 @@ final class MenuBarHider: NSObject {
         for child in children {
             var frameRef: AnyObject?
             guard AXUIElementCopyAttributeValue(child, "AXFrame" as CFString, &frameRef) == .success,
-                  let axVal = frameRef as! AXValue? else { continue }
+                  let axVal = frameRef else { continue }
             var rect = CGRect.zero
-            AXValueGetValue(axVal, .cgRect, &rect)
+            // AXValue is a CF type; cast via UnsafeRawPointer to avoid the "always succeeds" warning.
+            let axValue = unsafeBitCast(axVal, to: AXValue.self)
+            AXValueGetValue(axValue, .cgRect, &rect)
             rightmost = max(rightmost, rect.maxX)
         }
-        return rightmost > 0 ? rightmost + 12 : 400  // 12 px breathing room
-    }
-
-    private func hideCover() {
-        coverPanel?.orderOut(nil)
-        coverPanel = nil
+        return rightmost > 0 ? rightmost + 12 : 400
     }
 }
