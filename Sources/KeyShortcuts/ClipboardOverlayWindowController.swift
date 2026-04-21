@@ -47,6 +47,12 @@ class ClipboardOverlayWindowController {
         p.contentView = hosting
 
         self.panel = p
+
+        // LSUIElement apps don't become key on click — activate explicitly when editing starts.
+        NotificationCenter.default.addObserver(forName: .clipboardEditingBegan, object: nil, queue: .main) { [weak self] _ in
+            NSApp.activate(ignoringOtherApps: true)
+            self?.panel?.makeKeyAndOrderFront(nil)
+        }
     }
 
     func show() {

@@ -194,6 +194,7 @@ struct ClipboardItemRowView: View {
                     Button {
                         if case .text(let s) = item.content { editText = s }
                         isEditing = true
+                        NotificationCenter.default.post(name: .clipboardEditingBegan, object: nil)
                     } label: {
                         Image(systemName: "pencil")
                             .font(.system(size: 12))
@@ -335,7 +336,7 @@ private struct FocusedTextEditor: NSViewRepresentable {
         if tv.string != text { tv.string = text }
         guard !context.coordinator.didFocus else { return }
         context.coordinator.didFocus = true
-        DispatchQueue.main.async {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             tv.window?.makeFirstResponder(tv)
         }
     }
