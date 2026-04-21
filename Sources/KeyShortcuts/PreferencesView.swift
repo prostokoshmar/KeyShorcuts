@@ -91,7 +91,12 @@ private struct GeneralTab: View {
                         Spacer()
                         HotkeyRecorderView(hotkey: $settings.appSwitcherHotkey)
                     }
-                    Text("Shows running apps around the cursor. Hover to see windows.")
+                    Picker("Show", selection: $settings.appSwitcherShowAll) {
+                        Text("All running apps").tag(true)
+                        Text("Apps with open windows").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    Text("Press Esc to dismiss. Hover multi-window apps to see their windows.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
