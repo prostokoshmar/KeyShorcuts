@@ -61,14 +61,15 @@ class ClipboardOverlayWindowController {
     }
 
     func show() {
+        guard !isVisible else { return }
+        isVisible = true
         previousApp = NSWorkspace.shared.frontmostApplication
         if let screen = NSScreen.main {
             let sf = screen.frame
             let wf = panel?.frame ?? .zero
             panel?.setFrameOrigin(NSPoint(x: sf.midX - wf.width / 2, y: sf.midY - wf.height / 2))
         }
-        isVisible = true
-        panel?.orderFront(nil) // orderFront, not makeKeyAndOrderFront — don't steal focus on appear
+        panel?.orderFront(nil)
         NSAnimationContext.runAnimationGroup { ctx in
             ctx.duration = 0.18
             self.panel?.animator().alphaValue = 1
@@ -84,6 +85,8 @@ class ClipboardOverlayWindowController {
     }
 
     func hide() {
+        guard isVisible else { return }
+        isVisible = false   // set immediately so rapid re-presses don't desync state
         removeMouseMonitor()
         let appToRestore = previousApp
         previousApp = nil
@@ -92,8 +95,6 @@ class ClipboardOverlayWindowController {
             self.panel?.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             self?.panel?.orderOut(nil)
-            self?.isVisible = false
-            // Restore previous app so ⌘V (or ⌥⇧⌘V) lands in the right place.
             appToRestore?.activate(options: .activateIgnoringOtherApps)
             if self?.pendingPaste == true {
                 self?.pendingPaste = false
