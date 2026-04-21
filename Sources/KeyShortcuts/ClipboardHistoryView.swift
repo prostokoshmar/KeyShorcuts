@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ClipboardHistoryView: View {
     @ObservedObject private var manager = ClipboardHistoryManager.shared
+    @ObservedObject private var settings = AppSettings.shared
     let onItemChosen: (ClipboardItem) -> Void
     let onDismiss: () -> Void
 
@@ -50,6 +51,16 @@ struct ClipboardHistoryView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
+                Button {
+                    settings.plainPaste.toggle()
+                } label: {
+                    Label("Plain Paste", systemImage: settings.plainPaste ? "text.badge.checkmark" : "text.badge.xmark")
+                        .font(.system(size: 11))
+                        .foregroundStyle(settings.plainPaste ? Color.accentColor : .secondary)
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.plain)
+                .help(settings.plainPaste ? "Plain Paste: On (⌥⇧⌘V — strips formatting)" : "Plain Paste: Off (⌘V)")
                 Text(AppSettings.shared.clipboardHotkey.displayString)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundStyle(.tertiary)

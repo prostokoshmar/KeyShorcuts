@@ -173,8 +173,12 @@ class ClipboardHistoryManager: ObservableObject {
             let vKeyCode: CGKeyCode = 9
             let keyDown = CGEvent(keyboardEventSource: src, virtualKey: vKeyCode, keyDown: true)
             let keyUp   = CGEvent(keyboardEventSource: src, virtualKey: vKeyCode, keyDown: false)
-            keyDown?.flags = .maskCommand
-            keyUp?.flags   = .maskCommand
+            // Plain paste = Paste and Match Style (⌥⇧⌘V), strips source formatting.
+            let flags: CGEventFlags = AppSettings.shared.plainPaste
+                ? [.maskCommand, .maskShift, .maskAlternate]
+                : [.maskCommand]
+            keyDown?.flags = flags
+            keyUp?.flags   = flags
             keyDown?.post(tap: .cgSessionEventTap)
             keyUp?.post(tap: .cgSessionEventTap)
         }

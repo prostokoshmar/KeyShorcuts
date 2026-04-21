@@ -110,6 +110,10 @@ class AppSettings: ObservableObject {
         }
     }
 
+    @Published var plainPaste: Bool {
+        didSet { UserDefaults.standard.set(plainPaste, forKey: "plainPaste") }
+    }
+
     private init() {
         let modeRaw = UserDefaults.standard.string(forKey: "triggerMode") ?? ""
         triggerMode = TriggerMode(rawValue: modeRaw) ?? .hold
@@ -136,6 +140,8 @@ class AppSettings: ObservableObject {
 
         let selInterval = UserDefaults.standard.double(forKey: "autoSelectPollingInterval")
         autoSelectPollingInterval = selInterval > 0 ? selInterval : 0.3
+
+        plainPaste = UserDefaults.standard.bool(forKey: "plainPaste")
     }
 }
 
