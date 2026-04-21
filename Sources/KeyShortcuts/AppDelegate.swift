@@ -6,6 +6,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var overlayController: OverlayWindowController!
     private var clipboardController: ClipboardOverlayWindowController!
+    private var appSwitcherController: AppSwitcherOverlayWindowController!
     private var keyMonitor: GlobalKeyMonitor!
     private var preferencesWindow: NSWindow?
 
@@ -16,8 +17,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
-        overlayController = OverlayWindowController()
-        clipboardController = ClipboardOverlayWindowController()
+        overlayController       = OverlayWindowController()
+        clipboardController     = ClipboardOverlayWindowController()
+        appSwitcherController   = AppSwitcherOverlayWindowController()
         _ = ClipboardHistoryManager.shared  // start clipboard polling
 
         keyMonitor = GlobalKeyMonitor(
@@ -47,6 +49,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             },
             keepAwakeCallback: { [weak self] in
                 self?.toggleKeepAwake()
+            },
+            appSwitcherCallback: { [weak self] in
+                guard let self = self else { return }
+                if self.appSwitcherController.isVisible {
+                    self.appSwitcherController.hide()
+                } else {
+                    self.appSwitcherController.show()
+                }
             }
         )
         // If the key monitor fails (permissions revoked after update), add a menu reminder.

@@ -89,6 +89,10 @@ class AppSettings: ObservableObject {
         didSet { keepAwakeHotkey.save(prefix: "keepAwakeHotkey") }
     }
 
+    @Published var appSwitcherHotkey: ClipboardHotkey {
+        didSet { appSwitcherHotkey.save(prefix: "appSwitcherHotkey") }
+    }
+
     @Published var clipboardPollingInterval: Double {
         didSet {
             UserDefaults.standard.set(clipboardPollingInterval, forKey: "clipboardPollingInterval")
@@ -127,8 +131,9 @@ class AppSettings: ObservableObject {
         let limit = UserDefaults.standard.integer(forKey: "clipboardHistoryLimit")
         clipboardHistoryLimit = limit > 0 ? limit : 20
 
-        clipboardHotkey = ClipboardHotkey.load(prefix: "clipboardHotkey", fallback: .defaultClipboard)
-        keepAwakeHotkey = ClipboardHotkey.load(prefix: "keepAwakeHotkey", fallback: .defaultKeepAwake)
+        clipboardHotkey     = ClipboardHotkey.load(prefix: "clipboardHotkey",     fallback: .defaultClipboard)
+        keepAwakeHotkey     = ClipboardHotkey.load(prefix: "keepAwakeHotkey",     fallback: .defaultKeepAwake)
+        appSwitcherHotkey   = ClipboardHotkey.load(prefix: "appSwitcherHotkey",   fallback: .defaultAppSwitcher)
 
         let pollInterval = UserDefaults.standard.double(forKey: "clipboardPollingInterval")
         clipboardPollingInterval = pollInterval > 0 ? pollInterval : 0.5
