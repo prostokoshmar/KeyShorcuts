@@ -98,7 +98,9 @@ final class MenuBarHider: NSObject {
             backing: .buffered,
             defer: false
         )
-        panel.level = .statusBar
+        // One level above .statusBar so the panel sits in front of the system's
+        // own menu bar window (which lives at statusWindow / statusBar level).
+        panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.statusWindow)) + 1)
         panel.hasShadow = false
         panel.isOpaque = true
         panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
@@ -137,31 +139,36 @@ final class MenuBarHider: NSObject {
               let full = NSImage(contentsOf: url) else { return nil }
 
         let sf = screen.frame
-        let imgSize = full.size
-        // Compute how the wallpaper maps onto the screen (Fill / scale-to-fill).
-        let scaleX = imgSize.width  / sf.width
-        let scaleY = imgSize.height / sf.height
-        let scale  = max(scaleX, scaleY)           // fill: largest axis wins
-        let scaledW = imgSize.width  / scale
-        let scaledH = imgSize.height / scale
-        // Offset into the image when centred on screen.
+        let imgW = full.size.width
+        let imgH = full.size.height
+
+        // "Fill Screen" scale: multiply image so the SMALLER screen-to-image ratio
+        // brings the image up to cover the full screen.  min() here = max coverage.
+        // (Using max() was a bug that under-scaled and produced out-of-bounds crops.)
+        let scale = min(imgW / sf.width, imgH / sf.height)
+        let scaledW = imgW / scale   // image dims when fitted to screen in "fill" mode
+        let scaledH = imgH / scale
+        // Half of the overflow that gets cropped off each edge.
         let ox = (scaledW - sf.width)  / 2
         let oy = (scaledH - sf.height) / 2
 
-        // coverRect is in screen coords (AppKit, origin bottom-left).
-        // Convert to image coords (also bottom-left after the flip).
+        // coverRect is in AppKit screen coords (bottom-left origin).
+        // NSImage.draw(from:) also uses bottom-left, so no flip is needed —
+        // higher screen-y maps directly to higher image-y (both increase upward).
         let cropX = (coverRect.minX - sf.minX + ox) * scale
         let cropY = (coverRect.minY - sf.minY + oy) * scale
         let cropW = coverRect.width  * scale
         let cropH = coverRect.height * scale
 
+        guard cropX >= 0, cropY >= 0,
+              cropX + cropW <= imgW + 1,
+              cropY + cropH <= imgH + 1 else { return nil }
+
         let srcRect = NSRect(x: cropX, y: cropY, width: cropW, height: cropH)
         let cropped = NSImage(size: coverRect.size)
         cropped.lockFocus()
         full.draw(in: NSRect(origin: .zero, size: coverRect.size),
-                  from: srcRect,
-                  operation: .copy,
-                  fraction: 1)
+                  from: srcRect, operation: .copy, fraction: 1)
         cropped.unlockFocus()
         return cropped
     }
