@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AppWindowInfo: Identifiable {
-    let id: Int        // index in AX window list, stable within one fetch
+    let id: Int
     let title: String
     let axElement: AXUIElement
 }
@@ -20,9 +20,19 @@ struct AppSwitcherView: View {
 
     @State private var hoveredAppID: pid_t? = nil
 
-    static let iconSize: CGFloat = 56
-    static let radius: CGFloat = 118
-    static let containerSize: CGFloat = (radius + iconSize + 44) * 2
+    static let iconSize: CGFloat = 52
+
+    // Enough arc between icon centers so they never crowd each other.
+    static func dynamicRadius(for count: Int) -> CGFloat {
+        max(100, CGFloat(count) * 80 / (2 * .pi))
+    }
+
+    // Extra 220 pt beyond the icon ring to give window-list popups room to render.
+    static func containerSize(for count: Int) -> CGFloat {
+        (dynamicRadius(for: count) + 220) * 2
+    }
+
+    private var radius: CGFloat { Self.dynamicRadius(for: apps.count) }
 
     var body: some View {
         ZStack {
@@ -30,17 +40,27 @@ struct AppSwitcherView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { onDismiss() }
 
+            // Dark radial fog so icons read against any background.
+            RadialGradient(
+                colors: [Color.black.opacity(0.55), Color.clear],
+                center: .center,
+                startRadius: 0,
+                endRadius: radius + 24
+            )
+            .frame(width: (radius + 24) * 2, height: (radius + 24) * 2)
+            .allowsHitTesting(false)
+
             ForEach(Array(apps.enumerated()), id: \.element.id) { index, entry in
                 let angle  = itemAngle(index: index, total: apps.count)
-                let dx     = cos(angle) * Double(Self.radius)
-                let dy     = -sin(angle) * Double(Self.radius)
+                let dx     = cos(angle) * Double(radius)
+                let dy     = -sin(angle) * Double(radius)
 
                 AppIconCell(
                     entry: entry,
                     iconSize: Self.iconSize,
                     isHovered: hoveredAppID == entry.id,
                     onHover: { over in
-                        withAnimation(.easeOut(duration: 0.1)) {
+                        withAnimation(.easeOut(duration: 0.12)) {
                             hoveredAppID = over ? entry.id : nil
                         }
                     },
@@ -49,7 +69,7 @@ struct AppSwitcherView: View {
                 .offset(x: dx, y: dy)
 
                 if hoveredAppID == entry.id && entry.windows.count > 1 {
-                    let cardDist = Double(Self.radius) + Double(Self.iconSize) * 0.6 + 70
+                    let cardDist = Double(radius) + Double(Self.iconSize) * 0.6 + 70
                     WindowListCard(
                         windows: entry.windows,
                         onWindowChosen: { win in onWindowChosen(entry, win) }
@@ -60,7 +80,10 @@ struct AppSwitcherView: View {
                 }
             }
         }
-        .frame(width: Self.containerSize, height: Self.containerSize)
+        .frame(
+            width:  Self.containerSize(for: apps.count),
+            height: Self.containerSize(for: apps.count)
+        )
     }
 
     private func itemAngle(index: Int, total: Int) -> Double {
@@ -68,6 +91,8 @@ struct AppSwitcherView: View {
         return Double(index) / Double(total) * 2 * .pi - .pi / 2
     }
 }
+
+// MARK: - Icon Cell
 
 private struct AppIconCell: View {
     let entry: RunningAppEntry
@@ -77,12 +102,20 @@ private struct AppIconCell: View {
     let onTap: () -> Void
 
     var body: some View {
-        VStack(spacing: 5) {
+        VStack(spacing: 6) {
             ZStack {
+                // Subtle glow ring on hover
                 Circle()
-                    .fill(isHovered ? Color.white.opacity(0.28) : Color.black.opacity(0.38))
-                    .frame(width: iconSize + 14, height: iconSize + 14)
-                    .shadow(color: .black.opacity(0.4), radius: 6, x: 0, y: 2)
+                    .stroke(Color.white.opacity(isHovered ? 0.65 : 0), lineWidth: 2)
+                    .frame(width: iconSize + 16, height: iconSize + 16)
+
+                // Icon background
+                Circle()
+                    .fill(isHovered
+                          ? Color.white.opacity(0.18)
+                          : Color.black.opacity(0.42))
+                    .frame(width: iconSize + 10, height: iconSize + 10)
+                    .shadow(color: .black.opacity(0.5), radius: isHovered ? 10 : 5, x: 0, y: 3)
 
                 if let icon = entry.app.icon {
                     Image(nsImage: icon)
@@ -91,21 +124,27 @@ private struct AppIconCell: View {
                         .clipShape(RoundedRectangle(cornerRadius: iconSize * 0.22))
                 }
             }
-            .scaleEffect(isHovered ? 1.12 : 1.0)
-            .animation(.easeOut(duration: 0.1), value: isHovered)
+            .scaleEffect(isHovered ? 1.16 : 1.0)
 
+            // Label — always laid out, only visible on hover, so nearby icons don't shift.
             Text(entry.app.localizedName ?? "")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white)
-                .shadow(color: .black, radius: 2, x: 0, y: 1)
                 .lineLimit(1)
-                .frame(maxWidth: iconSize + 36)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.black.opacity(0.70), in: RoundedRectangle(cornerRadius: 6))
+                .opacity(isHovered ? 1 : 0)
+                .scaleEffect(isHovered ? 1 : 0.85, anchor: .top)
         }
+        .animation(.easeOut(duration: 0.12), value: isHovered)
         .onHover(perform: onHover)
         .onTapGesture(perform: onTap)
         .contentShape(Rectangle())
     }
 }
+
+// MARK: - Window List Popup
 
 private struct WindowListCard: View {
     let windows: [AppWindowInfo]
@@ -116,27 +155,33 @@ private struct WindowListCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(windows) { win in
-                Text(win.title.isEmpty ? "Untitled" : win.title)
-                    .font(.system(size: 12))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(hoveredID == win.id ? Color.accentColor : Color.clear)
-                    .foregroundStyle(hoveredID == win.id ? Color.white : Color.primary)
-                    .contentShape(Rectangle())
-                    .onHover { over in hoveredID = over ? win.id : nil }
-                    .onTapGesture { onWindowChosen(win) }
+                HStack(spacing: 6) {
+                    Image(systemName: "macwindow")
+                        .font(.system(size: 11))
+                        .foregroundStyle(hoveredID == win.id ? .white : .secondary)
+
+                    Text(win.title.isEmpty ? "Untitled" : win.title)
+                        .font(.system(size: 12))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(hoveredID == win.id ? Color.white : Color.primary)
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(hoveredID == win.id ? Color.accentColor : Color.clear)
+                .contentShape(Rectangle())
+                .onHover { over in hoveredID = over ? win.id : nil }
+                .onTapGesture { onWindowChosen(win) }
 
                 if win.id != windows.last?.id {
-                    Divider().padding(.horizontal, 6).opacity(0.4)
+                    Divider().padding(.horizontal, 8).opacity(0.35)
                 }
             }
         }
-        .frame(width: 210)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
-        .clipShape(RoundedRectangle(cornerRadius: 10))
-        .shadow(color: .black.opacity(0.3), radius: 12, x: 0, y: 5)
+        .frame(width: 220)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 11))
+        .clipShape(RoundedRectangle(cornerRadius: 11))
+        .shadow(color: .black.opacity(0.35), radius: 16, x: 0, y: 6)
     }
 }
