@@ -125,7 +125,6 @@ struct ClipboardItemRowView: View {
     @State private var isHovered = false
     @State private var isEditing = false
     @State private var editText  = ""
-    @FocusState private var editorFocused: Bool
 
     var body: some View {
         Group {
@@ -141,17 +140,14 @@ struct ClipboardItemRowView: View {
 
     private var editingView: some View {
         VStack(alignment: .trailing, spacing: 6) {
-            TextEditor(text: $editText)
-                .font(.system(size: 12))
+            FocusedTextEditor(text: $editText)
                 .frame(maxWidth: .infinity, minHeight: 70, maxHeight: 120)
-                .scrollContentBackground(.hidden)
                 .background(Color.primary.opacity(0.04))
                 .cornerRadius(6)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
                         .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
                 )
-                .focused($editorFocused)
 
             HStack(spacing: 8) {
                 Button("Cancel") { isEditing = false }
@@ -197,10 +193,7 @@ struct ClipboardItemRowView: View {
                 if case .text = item.content {
                     Button {
                         if case .text(let s) = item.content { editText = s }
-                        NSApp.activate(ignoringOtherApps: true)
-                        NotificationCenter.default.post(name: .clipboardEditingBegan, object: nil)
                         isEditing = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { editorFocused = true }
                     } label: {
                         Image(systemName: "pencil")
                             .font(.system(size: 12))
@@ -305,5 +298,60 @@ struct ClipboardItemRowView: View {
         case .image(let img): shareItems = [img]
         }
         NSSharingService(named: .sendViaAirDrop)?.perform(withItems: shareItems)
+    }
+}
+
+// MARK: - NSTextView wrapper that grabs first responder in non-activating panels
+
+private struct FocusedTextEditor: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let tv = NSTextView()
+        tv.isEditable = true
+        tv.isRichText = false
+        tv.allowsUndo = true
+        tv.font = .systemFont(ofSize: 12)
+        tv.backgroundColor = .clear
+        tv.drawsBackground = false
+        tv.isVerticallyResizable = true
+        tv.textContainer?.widthTracksTextView = true
+        tv.delegate = context.coordinator
+        context.coordinator.textView = tv
+
+        let sv = NSScrollView()
+        sv.documentView = tv
+        sv.hasVerticalScroller = true
+        sv.drawsBackground = false
+        sv.borderType = .noBorder
+        sv.backgroundColor = .clear
+        return sv
+    }
+
+    func updateNSView(_ sv: NSScrollView, context: Context) {
+        guard let tv = sv.documentView as? NSTextView else { return }
+        if tv.string != text { tv.string = text }
+        guard !context.coordinator.didFocus else { return }
+        context.coordinator.didFocus = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            NSApp.activate(ignoringOtherApps: true)
+            tv.window?.makeKey()
+            tv.window?.makeFirstResponder(tv)
+        }
+    }
+
+    class Coordinator: NSObject, NSTextViewDelegate {
+        @Binding var text: String
+        weak var textView: NSTextView?
+        var didFocus = false
+
+        init(text: Binding<String>) { _text = text }
+
+        func textDidChange(_ notification: Notification) {
+            guard let tv = notification.object as? NSTextView else { return }
+            text = tv.string
+        }
     }
 }
