@@ -81,6 +81,20 @@ private struct GeneralTab: View {
                         HotkeyRecorderView(hotkey: $settings.keepAwakeHotkey)
                     }
                 }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("App Switcher").font(.headline)
+                    HStack {
+                        Text("Shortcut")
+                        Spacer()
+                        HotkeyRecorderView(hotkey: $settings.appSwitcherHotkey)
+                    }
+                    Text("Shows running apps around the cursor. Hover to see windows.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(24)
         }

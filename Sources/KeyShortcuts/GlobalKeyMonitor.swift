@@ -10,15 +10,18 @@ class GlobalKeyMonitor {
     private let clipboardCallback: (() -> Void)?
     private let escapeCallback: (() -> Void)?
     private let keepAwakeCallback: (() -> Void)?
+    private let appSwitcherCallback: (() -> Void)?
 
     init(callback: @escaping (Bool) -> Void,
          clipboardCallback: (() -> Void)? = nil,
          escapeCallback: (() -> Void)? = nil,
-         keepAwakeCallback: (() -> Void)? = nil) {
+         keepAwakeCallback: (() -> Void)? = nil,
+         appSwitcherCallback: (() -> Void)? = nil) {
         self.callback = callback
         self.clipboardCallback = clipboardCallback
         self.escapeCallback = escapeCallback
         self.keepAwakeCallback = keepAwakeCallback
+        self.appSwitcherCallback = appSwitcherCallback
         setupEventTap()
     }
 
@@ -143,6 +146,16 @@ class GlobalKeyMonitor {
                flags.intersection(relevantMask) == kaHotkey.cgModifiers.intersection(relevantMask) {
                 cancelHoldTimer()
                 DispatchQueue.main.async { self.keepAwakeCallback?() }
+                return true // suppress
+            }
+
+            // App Switcher hotkey — suppress and toggle radial switcher.
+            let asHotkey = AppSettings.shared.appSwitcherHotkey
+            if !asHotkey.keyChar.isEmpty &&
+               keyCode == asHotkey.keyCode &&
+               flags.intersection(relevantMask) == asHotkey.cgModifiers.intersection(relevantMask) {
+                cancelHoldTimer()
+                DispatchQueue.main.async { self.appSwitcherCallback?() }
                 return true // suppress
             }
 

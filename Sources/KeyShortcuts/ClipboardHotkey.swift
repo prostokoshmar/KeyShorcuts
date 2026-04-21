@@ -13,6 +13,10 @@ struct ClipboardHotkey: Equatable {
         keyCode: 40, keyChar: "K",
         modifiers: CGEventFlags.maskCommand.rawValue
     )
+    static let defaultAppSwitcher = ClipboardHotkey(
+        keyCode: 49, keyChar: "Space",
+        modifiers: CGEventFlags.maskAlternate.rawValue
+    )
     static let none = ClipboardHotkey(keyCode: 0, keyChar: "", modifiers: 0)
 
     var displayString: String {
