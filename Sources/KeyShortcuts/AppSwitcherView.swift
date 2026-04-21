@@ -19,15 +19,15 @@ struct AppSwitcherView: View {
     let onDismiss: () -> Void
 
     @State private var hoveredAppID: pid_t? = nil
+    // Incremented on every hover-enter; lets the scheduled hide bail if another hover arrived.
+    @State private var hoverGeneration: Int = 0
 
     static let iconSize: CGFloat = 52
 
-    // Enough arc between icon centers so they never crowd each other.
     static func dynamicRadius(for count: Int) -> CGFloat {
         max(100, CGFloat(count) * 80 / (2 * .pi))
     }
 
-    // Extra 220 pt beyond the icon ring to give window-list popups room to render.
     static func containerSize(for count: Int) -> CGFloat {
         (dynamicRadius(for: count) + 220) * 2
     }
@@ -40,7 +40,6 @@ struct AppSwitcherView: View {
                 .contentShape(Rectangle())
                 .onTapGesture { onDismiss() }
 
-            // Dark radial fog so icons read against any background.
             RadialGradient(
                 colors: [Color.black.opacity(0.55), Color.clear],
                 center: .center,
@@ -60,9 +59,7 @@ struct AppSwitcherView: View {
                     iconSize: Self.iconSize,
                     isHovered: hoveredAppID == entry.id,
                     onHover: { over in
-                        withAnimation(.easeOut(duration: 0.12)) {
-                            hoveredAppID = over ? entry.id : nil
-                        }
+                        if over { enter(entry.id) } else { scheduleLeave() }
                     },
                     onTap: { onAppChosen(entry) }
                 )
@@ -74,6 +71,10 @@ struct AppSwitcherView: View {
                         windows: entry.windows,
                         onWindowChosen: { win in onWindowChosen(entry, win) }
                     )
+                    // Keep hover alive while mouse is inside the card.
+                    .onHover { over in
+                        if over { enter(entry.id) } else { scheduleLeave() }
+                    }
                     .offset(x: cos(angle) * cardDist, y: -sin(angle) * cardDist)
                     .zIndex(100)
                     .transition(.opacity.combined(with: .scale(scale: 0.92)))
@@ -84,6 +85,24 @@ struct AppSwitcherView: View {
             width:  Self.containerSize(for: apps.count),
             height: Self.containerSize(for: apps.count)
         )
+    }
+
+    // MARK: - Hover debounce
+
+    private func enter(_ id: pid_t) {
+        hoverGeneration += 1
+        withAnimation(.easeOut(duration: 0.12)) { hoveredAppID = id }
+    }
+
+    // 100 ms grace period so the mouse can travel from the icon to the popup card
+    // without flickering. If another hover-enter fires within that window, the hide is cancelled.
+    private func scheduleLeave() {
+        let gen = hoverGeneration
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            guard hoverGeneration == gen else { return }
+            withAnimation(.easeOut(duration: 0.12)) { hoveredAppID = nil }
+        }
     }
 
     private func itemAngle(index: Int, total: Int) -> Double {
@@ -104,12 +123,10 @@ private struct AppIconCell: View {
     var body: some View {
         VStack(spacing: 6) {
             ZStack {
-                // Subtle glow ring on hover
                 Circle()
                     .stroke(Color.white.opacity(isHovered ? 0.65 : 0), lineWidth: 2)
                     .frame(width: iconSize + 16, height: iconSize + 16)
 
-                // Icon background
                 Circle()
                     .fill(isHovered
                           ? Color.white.opacity(0.18)
@@ -126,7 +143,6 @@ private struct AppIconCell: View {
             }
             .scaleEffect(isHovered ? 1.16 : 1.0)
 
-            // Label — always laid out, only visible on hover, so nearby icons don't shift.
             Text(entry.app.localizedName ?? "")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundStyle(.white)

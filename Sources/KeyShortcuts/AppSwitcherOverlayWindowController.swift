@@ -95,7 +95,14 @@ class AppSwitcherOverlayWindowController {
     private func handleAppChosen(_ entry: RunningAppEntry) {
         hide()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-            entry.app.activate(options: .activateIgnoringOtherApps)
+            if entry.windows.isEmpty, let url = entry.app.bundleURL {
+                // App is running but has no open windows — re-open it so a window appears.
+                let cfg = NSWorkspace.OpenConfiguration()
+                cfg.activates = true
+                NSWorkspace.shared.openApplication(at: url, configuration: cfg) { _, _ in }
+            } else {
+                entry.app.activate(options: .activateIgnoringOtherApps)
+            }
         }
     }
 
