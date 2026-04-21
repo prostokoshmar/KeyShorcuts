@@ -118,6 +118,7 @@ class AppSwitcherOverlayWindowController {
     // MARK: - Data
 
     static func fetchRunningApps() -> [RunningAppEntry] {
+        let showAll = AppSettings.shared.appSwitcherShowAll
         return NSWorkspace.shared.runningApplications
             .filter { $0.activationPolicy == .regular }
             .map { app in
@@ -125,6 +126,7 @@ class AppSwitcherOverlayWindowController {
                                 app: app,
                                 windows: fetchWindows(for: app.processIdentifier))
             }
+            .filter { showAll || !$0.windows.isEmpty }
     }
 
     private static func fetchWindows(for pid: pid_t) -> [AppWindowInfo] {

@@ -93,6 +93,10 @@ class AppSettings: ObservableObject {
         didSet { appSwitcherHotkey.save(prefix: "appSwitcherHotkey") }
     }
 
+    @Published var appSwitcherShowAll: Bool {
+        didSet { UserDefaults.standard.set(appSwitcherShowAll, forKey: "appSwitcherShowAll") }
+    }
+
     @Published var clipboardPollingInterval: Double {
         didSet {
             UserDefaults.standard.set(clipboardPollingInterval, forKey: "clipboardPollingInterval")
@@ -134,6 +138,7 @@ class AppSettings: ObservableObject {
         clipboardHotkey     = ClipboardHotkey.load(prefix: "clipboardHotkey",     fallback: .defaultClipboard)
         keepAwakeHotkey     = ClipboardHotkey.load(prefix: "keepAwakeHotkey",     fallback: .defaultKeepAwake)
         appSwitcherHotkey   = ClipboardHotkey.load(prefix: "appSwitcherHotkey",   fallback: .defaultAppSwitcher)
+        appSwitcherShowAll  = UserDefaults.standard.object(forKey: "appSwitcherShowAll") as? Bool ?? true
 
         let pollInterval = UserDefaults.standard.double(forKey: "clipboardPollingInterval")
         clipboardPollingInterval = pollInterval > 0 ? pollInterval : 0.5

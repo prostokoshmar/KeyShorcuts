@@ -46,6 +46,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 if self.clipboardController.isVisible {
                     self.clipboardController.hide()
                 }
+                if self.appSwitcherController.isVisible {
+                    self.appSwitcherController.hide()
+                }
             },
             keepAwakeCallback: { [weak self] in
                 self?.toggleKeepAwake()
