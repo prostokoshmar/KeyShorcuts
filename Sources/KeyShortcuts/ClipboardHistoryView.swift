@@ -197,8 +197,9 @@ struct ClipboardItemRowView: View {
                 if case .text = item.content {
                     Button {
                         if case .text(let s) = item.content { editText = s }
-                        isEditing = true
                         NSApp.activate(ignoringOtherApps: true)
+                        NotificationCenter.default.post(name: .clipboardEditingBegan, object: nil)
+                        isEditing = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { editorFocused = true }
                     } label: {
                         Image(systemName: "pencil")

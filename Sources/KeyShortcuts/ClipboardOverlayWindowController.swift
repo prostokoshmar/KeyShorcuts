@@ -43,6 +43,10 @@ class ClipboardOverlayWindowController {
         p.contentView = hosting
 
         self.panel = p
+
+        NotificationCenter.default.addObserver(forName: .clipboardEditingBegan, object: nil, queue: .main) { [weak self] _ in
+            self?.panel?.makeKey()
+        }
     }
 
     func show() {

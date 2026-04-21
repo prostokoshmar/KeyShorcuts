@@ -9,14 +9,11 @@ struct PreferencesView: View {
             ClipboardTab()
                 .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
                 .tag(1)
-            MenuBarTab()
-                .tabItem { Label("Menu Bar", systemImage: "menubar.rectangle") }
-                .tag(2)
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
-                .tag(3)
+                .tag(2)
         }
-        .frame(width: 460, height: 380)
+        .frame(width: 460, height: 360)
     }
 }
 
@@ -159,75 +156,6 @@ private struct ClipboardTab: View {
                 }
             }
             .padding(24)
-        }
-    }
-}
-
-// MARK: - Menu Bar
-
-private struct MenuBarTab: View {
-    @State private var installed = MenuBarHider.shared.isInstalled
-    @State private var collapsed = MenuBarHider.shared.isCollapsed
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Menu Bar Hider").font(.headline)
-                if installed {
-                    Text("The ‹ divider is active in your menu bar. ⌘-drag it to reposition it between items you want to hide and items you want to keep visible.")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text("Adds a ‹ divider to your menu bar. Items to its left are hidden when you click Hide.")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            HStack(spacing: 12) {
-                if installed {
-                    Button(collapsed ? "Show Hidden Items" : "Hide Items to the Left") {
-                        MenuBarHider.shared.toggle()
-                        collapsed = MenuBarHider.shared.isCollapsed
-                    }
-                    .controlSize(.regular)
-
-                    Button("Remove Divider") {
-                        MenuBarHider.shared.uninstall()
-                        installed = false
-                        collapsed = false
-                    }
-                    .controlSize(.regular)
-                } else {
-                    Button("Add Divider to Menu Bar") {
-                        MenuBarHider.shared.install()
-                        installed = true
-                    }
-                    .controlSize(.regular)
-                }
-            }
-
-            if !installed {
-                Divider()
-                VStack(alignment: .leading, spacing: 6) {
-                    Label("How to use", systemImage: "lightbulb").font(.subheadline.weight(.medium))
-                    Text("1. Click \"Add Divider to Menu Bar\"")
-                    Text("2. ⌘-drag the ‹ divider between visible and hidden icons")
-                    Text("3. Click \"Hide Items to the Left\" to collapse")
-                    Text("4. Click \"Show Hidden Items\" to reveal them again")
-                }
-                .font(.caption).foregroundStyle(.secondary)
-            }
-
-            Spacer()
-        }
-        .padding(24)
-        .onAppear {
-            installed = MenuBarHider.shared.isInstalled
-            collapsed = MenuBarHider.shared.isCollapsed
-            MenuBarHider.shared.onStateChange = { col in
-                collapsed = col
-            }
         }
     }
 }

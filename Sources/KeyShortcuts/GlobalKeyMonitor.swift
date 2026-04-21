@@ -45,6 +45,11 @@ class GlobalKeyMonitor {
                     return Unmanaged.passUnretained(event)
                 }
                 let monitor = Unmanaged<GlobalKeyMonitor>.fromOpaque(refcon).takeUnretainedValue()
+                // macOS auto-disables taps that are slow; re-enable immediately.
+                if type.rawValue == 0xFFFFFFFE || type.rawValue == 0xFFFFFFFF {
+                    if let tap = monitor.eventTap { CGEvent.tapEnable(tap: tap, enable: true) }
+                    return Unmanaged.passUnretained(event)
+                }
                 let suppress = monitor.handleEvent(type: type, event: event)
                 return suppress ? nil : Unmanaged.passUnretained(event)
             },
