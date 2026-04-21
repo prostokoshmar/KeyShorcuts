@@ -25,7 +25,8 @@ openssl req -x509 -newkey rsa:2048 -keyout "$TMP/key.pem" -out "$TMP/cert.pem" \
 # Bundle into PKCS#12 so 'security import' can ingest both key and cert.
 openssl pkcs12 -export -out "$TMP/cert.p12" \
     -inkey "$TMP/key.pem" -in "$TMP/cert.pem" \
-    -passout pass:ks_local_tmp
+    -passout pass:ks_local_tmp \
+    -legacy
 
 # Import into the login keychain, allow codesign to use it without a passphrase.
 security import "$TMP/cert.p12" \
