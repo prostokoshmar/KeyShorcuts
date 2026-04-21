@@ -1,6 +1,11 @@
 import Cocoa
 import SwiftUI
 
+private class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 class ClipboardOverlayWindowController {
     private var panel: NSPanel?
     private var pendingPaste = false
@@ -24,7 +29,7 @@ class ClipboardOverlayWindowController {
         // the key window, which blocks keyboard input in TextEditor entirely.
         // We use orderFront (not makeKeyAndOrderFront) when showing, so the panel
         // appears without stealing focus. It only becomes key when the user clicks it.
-        let p = NSPanel(
+        let p = KeyablePanel(
             contentRect: frame,
             styleMask: [.borderless],
             backing: .buffered,
