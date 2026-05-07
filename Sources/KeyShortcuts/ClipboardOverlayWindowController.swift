@@ -25,10 +25,6 @@ class ClipboardOverlayWindowController {
             height: windowHeight
         )
 
-        // No .nonactivatingPanel — that flag prevents the panel from ever becoming
-        // the key window, which blocks keyboard input in TextEditor entirely.
-        // We use orderFront (not makeKeyAndOrderFront) when showing, so the panel
-        // appears without stealing focus. It only becomes key when the user clicks it.
         let p = KeyablePanel(
             contentRect: frame,
             styleMask: [.borderless],
@@ -41,7 +37,7 @@ class ClipboardOverlayWindowController {
         p.level = .floating
         p.isFloatingPanel = true
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        p.alphaValue = 0
+        p.alphaValue = 1
 
         let hosting = NSHostingView(rootView: ClipboardHistoryView(
             onItemChosen: { [weak self] item in self?.handleItemChosen(item) },
@@ -69,38 +65,30 @@ class ClipboardOverlayWindowController {
             let wf = panel?.frame ?? .zero
             panel?.setFrameOrigin(NSPoint(x: sf.midX - wf.width / 2, y: sf.midY - wf.height / 2))
         }
-        panel?.orderFront(nil)
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.18
-            self.panel?.animator().alphaValue = 1
-        }
+        panel?.alphaValue = 1
+        panel?.orderFrontRegardless()
 
         mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             guard let self = self else { return }
             let pt = NSEvent.mouseLocation
             if let frame = self.panel?.frame, !frame.contains(pt) {
-                DispatchQueue.main.async { self.hide() }
+                self.hide()
             }
         }
     }
 
     func hide() {
         guard isVisible else { return }
-        isVisible = false   // set immediately so rapid re-presses don't desync state
+        isVisible = false
         removeMouseMonitor()
         let appToRestore = previousApp
         previousApp = nil
-        NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.15
-            self.panel?.animator().alphaValue = 0
-        }, completionHandler: { [weak self] in
-            self?.panel?.orderOut(nil)
-            appToRestore?.activate(options: .activateIgnoringOtherApps)
-            if self?.pendingPaste == true {
-                self?.pendingPaste = false
-                ClipboardHistoryManager.shared.simulateCmdV()
-            }
-        })
+        panel?.orderOut(nil)
+        appToRestore?.activate(options: .activateIgnoringOtherApps)
+        if pendingPaste {
+            pendingPaste = false
+            ClipboardHistoryManager.shared.simulateCmdV()
+        }
     }
 
     private func removeMouseMonitor() {
