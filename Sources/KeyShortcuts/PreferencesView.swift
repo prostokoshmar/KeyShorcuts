@@ -80,6 +80,9 @@ private struct GeneralTab: View {
                         Spacer()
                         HotkeyRecorderView(hotkey: $settings.keepAwakeHotkey)
                     }
+                    Text("Shortcut always activates indefinite mode. Use the menu icon to set a timed duration.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Divider()

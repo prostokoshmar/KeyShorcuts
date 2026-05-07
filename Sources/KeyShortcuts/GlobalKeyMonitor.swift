@@ -1,5 +1,15 @@
 import Cocoa
 
+func ksLog(_ msg: String) {
+    let line = msg + "\n"
+    if let data = line.data(using: .utf8) {
+        let url = URL(fileURLWithPath: "/tmp/ks.log")
+        if let fh = try? FileHandle(forWritingTo: url) {
+            fh.seekToEndOfFile(); fh.write(data); fh.closeFile()
+        } else { try? data.write(to: url) }
+    }
+}
+
 class GlobalKeyMonitor {
     private var eventTap: CFMachPort?
     private var holdTimer: Timer?
@@ -69,22 +79,18 @@ class GlobalKeyMonitor {
     }
 
     private func showPermissionError() {
-        // Don't terminate — clipboard history and menu bar hider still work without
-        // key monitoring. Post a notification so the menu shows a one-click fix link.
         DispatchQueue.main.async {
             NotificationCenter.default.post(name: .keyMonitorPermissionFailed,
                                             object: AXIsProcessTrusted())
         }
     }
 
-    // Returns true when only the configured trigger key is active (no other modifiers).
     private func isOnlyTriggerKey(_ flags: CGEventFlags) -> Bool {
         let key = AppSettings.shared.triggerKey
         guard flags.contains(key.flagMask) else { return false }
         return !key.otherMasks.contains(where: { flags.contains($0) })
     }
 
-    // Returns true if the event should be suppressed (not passed to other apps).
     @discardableResult
     private func handleEvent(type: CGEventType, event: CGEvent) -> Bool {
         let settings = AppSettings.shared
@@ -105,21 +111,19 @@ class GlobalKeyMonitor {
                     let now = Date()
                     if let last = lastKeyPressTime,
                        now.timeIntervalSince(last) < settings.doublePressInterval {
-                        // Second press within the window — show overlay.
                         lastKeyPressTime = nil
                         isOverlayVisible = true
-                        DispatchQueue.main.async { self.callback(true) }
+                        self.callback(true)
                     } else {
                         lastKeyPressTime = now
                     }
                 }
 
             } else if !flags.contains(settings.triggerKey.flagMask) {
-                // Trigger key released.
                 cancelHoldTimer()
                 if isOverlayVisible {
                     isOverlayVisible = false
-                    DispatchQueue.main.async { self.callback(false) }
+                    self.callback(false)
                 }
             }
             return false
@@ -128,48 +132,46 @@ class GlobalKeyMonitor {
             let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
             let flags = event.flags
             let relevantMask: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
+            let flagBits = flags.intersection(relevantMask).rawValue
 
-            // Clipboard history hotkey — dynamic, set in Preferences. Suppress so it doesn't reach the active app.
             let hotkey = AppSettings.shared.clipboardHotkey
+            let hotkeyBits = hotkey.cgModifiers.intersection(relevantMask).rawValue
+            ksLog("keyDown keyCode=\(keyCode) flags=\(flagBits) | stored keyCode=\(hotkey.keyCode) flags=\(hotkeyBits) char='\(hotkey.keyChar)'")
             if keyCode == hotkey.keyCode &&
                !hotkey.keyChar.isEmpty &&
                flags.intersection(relevantMask) == hotkey.cgModifiers.intersection(relevantMask) {
                 cancelHoldTimer()
-                DispatchQueue.main.async { self.clipboardCallback?() }
-                return true // suppress
+                clipboardCallback?()
+                return true
             }
 
-            // Keep Awake hotkey — suppress and toggle keep awake.
             let kaHotkey = AppSettings.shared.keepAwakeHotkey
             if !kaHotkey.keyChar.isEmpty &&
                keyCode == kaHotkey.keyCode &&
                flags.intersection(relevantMask) == kaHotkey.cgModifiers.intersection(relevantMask) {
                 cancelHoldTimer()
-                DispatchQueue.main.async { self.keepAwakeCallback?() }
-                return true // suppress
+                keepAwakeCallback?()
+                return true
             }
 
-            // App Switcher hotkey — suppress and toggle radial switcher.
             let asHotkey = AppSettings.shared.appSwitcherHotkey
             if !asHotkey.keyChar.isEmpty &&
                keyCode == asHotkey.keyCode &&
                flags.intersection(relevantMask) == asHotkey.cgModifiers.intersection(relevantMask) {
                 cancelHoldTimer()
-                DispatchQueue.main.async { self.appSwitcherCallback?() }
-                return true // suppress
+                appSwitcherCallback?()
+                return true
             }
 
-            // Esc — let escape callback dismiss the clipboard overlay; pass through to active app.
             if keyCode == 53 {
-                DispatchQueue.main.async { self.escapeCallback?() }
+                escapeCallback?()
             }
 
-            // Any other key pressed — cancel and hide shortcuts overlay.
             otherKeyPressed = true
             cancelHoldTimer()
             if isOverlayVisible {
                 isOverlayVisible = false
-                DispatchQueue.main.async { self.callback(false) }
+                self.callback(false)
             }
             return false
 
