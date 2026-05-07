@@ -23,6 +23,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private weak var keepAwakeOffItem: NSMenuItem?
     private weak var keepAwakeCountdownItem: NSMenuItem?
     private weak var keepAwakeCountdownSeparator: NSMenuItem?
+    private var customDurationWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
@@ -142,6 +143,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             keepAwakeSubmenuItems.append((item: item, minutes: minutes))
         }
 
+        submenu.addItem(.separator())
+        submenu.addItem(withTitle: "Custom…", action: #selector(keepAwakeCustom), keyEquivalent: "")
+
         keepAwakeItem.submenu = submenu
         menu.addItem(keepAwakeItem)
         keepAwakeMenuItem = keepAwakeItem
@@ -167,6 +171,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func keepAwakeSelectDuration(_ sender: NSMenuItem) {
         guard let minutes = (sender.representedObject as? NSNumber)?.doubleValue else { return }
         startKeepAwake(minutes: minutes)
+    }
+
+    @objc private func keepAwakeCustom() {
+        if let w = customDurationWindow, w.isVisible { w.makeKeyAndOrderFront(nil); return }
+        let view = KeepAwakeCustomView(
+            onStart: { [weak self] minutes in
+                self?.customDurationWindow?.close()
+                self?.startKeepAwake(minutes: minutes)
+            },
+            onCancel: { [weak self] in
+                self?.customDurationWindow?.close()
+            }
+        )
+        let window = NSPanel(contentViewController: NSHostingController(rootView: view))
+        window.title = "Custom Duration"
+        window.styleMask = [.titled, .closable]
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        customDurationWindow = window
     }
 
     // Hotkey always activates indefinite mode
