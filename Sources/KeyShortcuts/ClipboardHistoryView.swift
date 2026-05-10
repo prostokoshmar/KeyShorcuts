@@ -2,18 +2,13 @@ import SwiftUI
 
 struct ClipboardHistoryView: View {
     @ObservedObject private var manager = ClipboardHistoryManager.shared
+    @ObservedObject private var settings = AppSettings.shared
     let onItemChosen: (ClipboardItem) -> Void
     let onDismiss: () -> Void
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(NSColor.windowBackgroundColor).opacity(0.92))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.55), radius: 40, x: 0, y: 16)
+            LiquidGlassBackground(cornerRadius: 18)
 
             VStack(spacing: 0) {
                 headerView
@@ -84,10 +79,7 @@ struct ClipboardHistoryView: View {
             }
 
             LinearGradient(
-                colors: [
-                    Color(NSColor.windowBackgroundColor).opacity(0),
-                    Color(NSColor.windowBackgroundColor).opacity(0.92)
-                ],
+                colors: [.clear, settings.overlayFadeColor],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -125,6 +117,9 @@ struct ClipboardItemRowView: View {
     @State private var isHovered = false
     @State private var isEditing = false
     @State private var editText  = ""
+    @ObservedObject private var settings = AppSettings.shared
+
+    private var pinkAccent: Color { Color(red: 1, green: 0.08, blue: 0.45) }
 
     var body: some View {
         Group {
@@ -139,14 +134,15 @@ struct ClipboardItemRowView: View {
     // MARK: - Editing view
 
     private var editingView: some View {
-        VStack(alignment: .trailing, spacing: 6) {
+        let editAccent = settings.cuteMode ? pinkAccent : Color.accentColor
+        return VStack(alignment: .trailing, spacing: 6) {
             FocusedTextEditor(text: $editText)
                 .frame(maxWidth: .infinity, minHeight: 70, maxHeight: 120)
                 .background(Color.primary.opacity(0.04))
                 .cornerRadius(6)
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .stroke(Color.accentColor.opacity(0.4), lineWidth: 1)
+                        .stroke(editAccent.opacity(0.4), lineWidth: 1)
                 )
 
             HStack(spacing: 8) {
@@ -161,17 +157,17 @@ struct ClipboardItemRowView: View {
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(editAccent)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(Color.accentColor.opacity(0.06))
+                .fill(editAccent.opacity(0.06))
                 .overlay(
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .stroke(Color.accentColor.opacity(0.25), lineWidth: 1)
+                        .stroke(editAccent.opacity(0.25), lineWidth: 1)
                 )
         )
     }
@@ -229,7 +225,9 @@ struct ClipboardItemRowView: View {
         .padding(.vertical, 9)
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
-                .fill(isHovered ? Color.primary.opacity(0.1) : Color.primary.opacity(0.04))
+                .fill(isHovered
+                    ? (settings.cuteMode ? pinkAccent.opacity(0.16) : Color.primary.opacity(0.1))
+                    : (settings.cuteMode ? pinkAccent.opacity(0.06) : Color.primary.opacity(0.04)))
         )
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }

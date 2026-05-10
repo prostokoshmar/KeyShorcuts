@@ -1,5 +1,34 @@
 import Cocoa
 
+enum LiquidGlassIntensity: String, CaseIterable {
+    case subtle   = "subtle"
+    case balanced = "balanced"
+    case max      = "max"
+
+    var displayName: String {
+        switch self {
+        case .subtle:   return "Subtle"
+        case .balanced: return "Balanced"
+        case .max:      return "Max"
+        }
+    }
+
+    // Values mirrored from the design's INTENSITY presets
+    var tint:   Double { switch self { case .subtle: 0.10; case .balanced: 0.16; case .max: 0.22 } }
+    var spec:   Double { switch self { case .subtle: 0.22; case .balanced: 0.34; case .max: 0.50 } }
+    var edge:   Double { switch self { case .subtle: 0.20; case .balanced: 0.32; case .max: 0.48 } }
+    var drop:   Double { switch self { case .subtle: 0.30; case .balanced: 0.45; case .max: 0.60 } }
+    var chroma: Double { switch self { case .subtle: 0;    case .balanced: 0.5;  case .max: 1.0  } }
+
+    var material: NSVisualEffectView.Material {
+        switch self {
+        case .subtle:   return .sidebar
+        case .balanced: return .hudWindow
+        case .max:      return .underWindowBackground
+        }
+    }
+}
+
 enum TriggerMode: String, CaseIterable {
     case hold = "hold"
     case doublePress = "doublePress"
@@ -118,6 +147,17 @@ class AppSettings: ObservableObject {
         }
     }
 
+    @Published var liquidGlassEnabled: Bool {
+        didSet { UserDefaults.standard.set(liquidGlassEnabled, forKey: "liquidGlassEnabled") }
+    }
+
+    @Published var liquidGlassIntensity: LiquidGlassIntensity {
+        didSet { UserDefaults.standard.set(liquidGlassIntensity.rawValue, forKey: "liquidGlassIntensity") }
+    }
+
+    @Published var cuteMode: Bool {
+        didSet { UserDefaults.standard.set(cuteMode, forKey: "cuteMode") }
+    }
 
     private init() {
         let modeRaw = UserDefaults.standard.string(forKey: "triggerMode") ?? ""
@@ -146,8 +186,18 @@ class AppSettings: ObservableObject {
         autoSelectCopy = UserDefaults.standard.bool(forKey: "autoSelectCopy")
 
         let selInterval = UserDefaults.standard.double(forKey: "autoSelectPollingInterval")
-        autoSelectPollingInterval = selInterval > 0 ? selInterval : 0.3
+        autoSelectPollingInterval = selInterval > 0 ? selInterval : 5.0
 
+        if let raw = UserDefaults.standard.object(forKey: "liquidGlassEnabled") as? Bool {
+            liquidGlassEnabled = raw
+        } else {
+            liquidGlassEnabled = true
+        }
+
+        let igRaw = UserDefaults.standard.string(forKey: "liquidGlassIntensity") ?? ""
+        liquidGlassIntensity = LiquidGlassIntensity(rawValue: igRaw) ?? .balanced
+
+        cuteMode = UserDefaults.standard.object(forKey: "cuteMode") as? Bool ?? false
     }
 }
 
