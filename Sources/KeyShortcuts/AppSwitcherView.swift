@@ -120,18 +120,23 @@ private struct AppIconCell: View {
     let onHover: (Bool) -> Void
     let onTap: () -> Void
 
+    @ObservedObject private var settings = AppSettings.shared
+
+    private var ringColor: Color {
+        settings.cuteMode
+            ? Color(red: 1, green: 0.08, blue: 0.45)
+            : Color.white
+    }
+
     var body: some View {
         VStack(spacing: 6) {
             ZStack {
+                // Ring indicator — pink in cute mode, white otherwise
                 Circle()
-                    .stroke(Color.white.opacity(isHovered ? 0.65 : 0), lineWidth: 2)
+                    .stroke(ringColor.opacity(isHovered ? 0.85 : 0), lineWidth: 2)
                     .frame(width: iconSize + 16, height: iconSize + 16)
 
-                Circle()
-                    .fill(isHovered
-                          ? Color.white.opacity(0.18)
-                          : Color.black.opacity(0.42))
-                    .frame(width: iconSize + 10, height: iconSize + 10)
+                LiquidGlassCircle(size: iconSize + 10, isHovered: isHovered)
                     .shadow(color: .black.opacity(0.5), radius: isHovered ? 10 : 5, x: 0, y: 3)
 
                 if let icon = entry.app.icon {
@@ -167,37 +172,41 @@ private struct WindowListCard: View {
     let onWindowChosen: (AppWindowInfo) -> Void
 
     @State private var hoveredID: Int? = nil
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(windows) { win in
-                HStack(spacing: 6) {
-                    Image(systemName: "macwindow")
-                        .font(.system(size: 11))
-                        .foregroundStyle(hoveredID == win.id ? .white : .secondary)
+        ZStack {
+            LiquidGlassBackground(cornerRadius: 11)
 
-                    Text(win.title.isEmpty ? "Untitled" : win.title)
-                        .font(.system(size: 12))
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .foregroundStyle(hoveredID == win.id ? Color.white : Color.primary)
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 7)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(hoveredID == win.id ? Color.accentColor : Color.clear)
-                .contentShape(Rectangle())
-                .onHover { over in hoveredID = over ? win.id : nil }
-                .onTapGesture { onWindowChosen(win) }
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(windows) { win in
+                    HStack(spacing: 6) {
+                        Image(systemName: "macwindow")
+                            .font(.system(size: 11))
+                            .foregroundStyle(hoveredID == win.id ? .white : .secondary)
 
-                if win.id != windows.last?.id {
-                    Divider().padding(.horizontal, 8).opacity(0.35)
+                        Text(win.title.isEmpty ? "Untitled" : win.title)
+                            .font(.system(size: 12))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                            .foregroundStyle(hoveredID == win.id ? Color.white : Color.primary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(hoveredID == win.id ? Color.accentColor : Color.clear)
+                    .contentShape(Rectangle())
+                    .onHover { over in hoveredID = over ? win.id : nil }
+                    .onTapGesture { onWindowChosen(win) }
+
+                    if win.id != windows.last?.id {
+                        Divider().padding(.horizontal, 8).opacity(0.35)
+                    }
                 }
             }
         }
         .frame(width: 220)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 11))
-        .clipShape(RoundedRectangle(cornerRadius: 11))
+        .clipShape(RoundedRectangle(cornerRadius: 11, style: .continuous))
         .shadow(color: .black.opacity(0.35), radius: 16, x: 0, y: 6)
     }
 }

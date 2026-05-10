@@ -74,30 +74,34 @@ class ClipboardHistoryManager: ObservableObject {
     }
 
     private func checkSelectedText() {
-        guard let app = NSWorkspace.shared.frontmostApplication else { return }
-        let axApp = AXUIElementCreateApplication(app.processIdentifier)
-        var focusedRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
-              let focused = focusedRef,
-              CFGetTypeID(focused) == AXUIElementGetTypeID() else { return }
-        let focusedElement = focused as! AXUIElement // safe: CFTypeID verified above
-        var selectedRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(focusedElement,
-                                            kAXSelectedTextAttribute as CFString,
-                                            &selectedRef) == .success,
-              let text = selectedRef as? String,
-              !text.isEmpty,
-              text != lastSelectedText else {
-            if selectedRef == nil || (selectedRef as? String)?.isEmpty == true { lastSelectedText = "" }
+        // Use the system-wide AX element to get the truly-focused element across all
+        // processes — this fixes browsers (Chrome, Firefox) which render in a separate
+        // renderer process that AXUIElementCreateApplication(pid) cannot reach.
+        guard let text = selectedTextViaSystemWide() else {
+            lastSelectedText = ""
             return
         }
+        guard text != lastSelectedText else { return }
         lastSelectedText = text
-        // Write to system clipboard so ⌘V works immediately (mirrors what ⌘C would have done)
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
         lastChangeCount = pb.changeCount   // don't re-ingest via the clipboard poller
         addItem(ClipboardItem(content: .text(text)))
+    }
+
+    private func selectedTextViaSystemWide() -> String? {
+        let systemWide = AXUIElementCreateSystemWide()
+        var focusedRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
+              let focused = focusedRef,
+              CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
+        let element = focused as! AXUIElement // safe: CFTypeID verified above
+        var selectedRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &selectedRef) == .success,
+              let text = selectedRef as? String,
+              !text.isEmpty else { return nil }
+        return text
     }
 
     // MARK: - Notification handlers

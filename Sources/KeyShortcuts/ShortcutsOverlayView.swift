@@ -5,19 +5,15 @@ struct ShortcutsOverlayView: View {
     let appName: String
     let appIcon: NSImage?
 
+    @ObservedObject private var settings = AppSettings.shared
+
     private var sortedCategories: [String] {
         shortcuts.keys.sorted()
     }
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(NSColor.windowBackgroundColor).opacity(0.92))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.55), radius: 40, x: 0, y: 16)
+            LiquidGlassBackground(cornerRadius: 18)
 
             VStack(spacing: 0) {
                 headerView
@@ -48,15 +44,12 @@ struct ShortcutsOverlayView: View {
                     }
                 }
                 .padding(20)
-                .padding(.bottom, 32) // room for fade
+                .padding(.bottom, 32)
             }
 
-            // Bottom fade hint — indicates more content below
+            // Bottom fade — adapts color to glass vs classic mode
             LinearGradient(
-                colors: [
-                    Color(NSColor.windowBackgroundColor).opacity(0),
-                    Color(NSColor.windowBackgroundColor).opacity(0.92)
-                ],
+                colors: [.clear, settings.overlayFadeColor],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -116,6 +109,7 @@ struct ShortcutsOverlayView: View {
 struct CategorySectionView: View {
     let title: String
     let items: [ShortcutItem]
+    @ObservedObject private var settings = AppSettings.shared
 
     private let columns = [
         GridItem(.flexible(), spacing: 8),
@@ -127,7 +121,9 @@ struct CategorySectionView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(settings.cuteMode
+                    ? Color(red: 1, green: 0.45, blue: 0.72)
+                    : Color.secondary)
                 .tracking(0.8)
 
             LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
@@ -141,6 +137,7 @@ struct CategorySectionView: View {
 
 struct ShortcutRowView: View {
     let item: ShortcutItem
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         HStack(spacing: 6) {
@@ -153,25 +150,32 @@ struct ShortcutRowView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(Color.primary.opacity(0.04))
+        .background(settings.cuteMode
+            ? Color(red: 1, green: 0.08, blue: 0.45).opacity(0.07)
+            : Color.primary.opacity(0.04))
         .cornerRadius(7)
     }
 }
 
 struct KeyBadge: View {
     let label: String
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        Text(label)
+        let fg: Color   = settings.cuteMode ? Color(red: 1, green: 0.55, blue: 0.80) : .primary
+        let bg: Color   = settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45).opacity(0.14) : .primary.opacity(0.1)
+        let bdr: Color  = settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45).opacity(0.32) : .primary.opacity(0.15)
+
+        return Text(label)
             .font(.system(size: 11, weight: .medium, design: .monospaced))
-            .foregroundStyle(.primary)
+            .foregroundStyle(fg)
             .padding(.horizontal, 7)
             .padding(.vertical, 3)
-            .background(Color.primary.opacity(0.1))
+            .background(bg)
             .cornerRadius(5)
             .overlay(
                 RoundedRectangle(cornerRadius: 5)
-                    .stroke(Color.primary.opacity(0.15), lineWidth: 0.5)
+                    .stroke(bdr, lineWidth: 0.5)
             )
     }
 }

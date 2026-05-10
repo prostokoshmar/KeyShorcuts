@@ -9,11 +9,14 @@ struct PreferencesView: View {
             ClipboardTab()
                 .tabItem { Label("Clipboard", systemImage: "doc.on.clipboard") }
                 .tag(1)
+            AppearanceTab()
+                .tabItem { Label("Appearance", systemImage: "paintbrush") }
+                .tag(2)
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
-                .tag(2)
+                .tag(3)
         }
-        .frame(width: 460, height: 360)
+        .frame(width: 460, height: 400)
     }
 }
 
@@ -169,15 +172,82 @@ private struct ClipboardTab: View {
                             Text("\(settings.autoSelectPollingInterval, specifier: "%.1f") s")
                                 .foregroundStyle(.secondary).monospacedDigit()
                         }
-                        Slider(value: $settings.autoSelectPollingInterval, in: 0.1...2.0, step: 0.1)
+                        Slider(value: $settings.autoSelectPollingInterval, in: 0.5...5.0, step: 0.5)
                             .disabled(!settings.autoSelectCopy)
-                        HStack { Text("0.1 s"); Spacer(); Text("2.0 s") }
+                        HStack { Text("0.5 s"); Spacer(); Text("5.0 s") }
                             .font(.caption).foregroundStyle(.tertiary)
                     }
                     .opacity(settings.autoSelectCopy ? 1 : 0.4)
                 }
             }
             .padding(24)
+        }
+    }
+}
+
+// MARK: - Appearance
+
+private struct AppearanceTab: View {
+    @ObservedObject private var settings = AppSettings.shared
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Liquid Glass").font(.headline)
+                    Toggle("Enable Liquid Glass effect", isOn: $settings.liquidGlassEnabled)
+                        .toggleStyle(.switch)
+                    Text("Applies frosted-glass depth to all overlays — shortcuts panel, clipboard history, and app switcher. Works on macOS 13 and later.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if settings.liquidGlassEnabled {
+                    Divider()
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Glass Intensity").font(.headline)
+                        Picker("", selection: $settings.liquidGlassIntensity) {
+                            ForEach(LiquidGlassIntensity.allCases, id: \.self) {
+                                Text($0.displayName).tag($0)
+                            }
+                        }
+                        .pickerStyle(.segmented).labelsHidden()
+
+                        HStack(spacing: 0) {
+                            ForEach(LiquidGlassIntensity.allCases, id: \.self) { lvl in
+                                Text(intensityDescription(lvl))
+                                    .font(.caption).foregroundStyle(.tertiary)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 6) {
+                        Text("Cute Mode").font(.headline)
+                        Text("🌸")
+                    }
+                    Toggle("Enable Cute Mode", isOn: $settings.cuteMode)
+                        .toggleStyle(.switch)
+                        .tint(Color(red: 1, green: 0.08, blue: 0.45))
+                    Text("Applies a deep pink tint to all overlay backgrounds, key badges, hover states, and borders.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(24)
+        }
+    }
+
+    private func intensityDescription(_ lvl: LiquidGlassIntensity) -> String {
+        switch lvl {
+        case .subtle:   return "Minimal blur"
+        case .balanced: return "Medium refraction"
+        case .max:      return "Full chromatic"
         }
     }
 }
