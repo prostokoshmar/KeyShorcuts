@@ -1,6 +1,7 @@
 import Cocoa
 import SwiftUI
 import IOKit.pwr_mgt
+import Combine
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
@@ -9,6 +10,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var appSwitcherController: AppSwitcherOverlayWindowController!
     private var keyMonitor: GlobalKeyMonitor!
     private var preferencesWindow: NSWindow?
+    private var cancellables = Set<AnyCancellable>()
 
     private var keepAwakeAssertionID: IOPMAssertionID = 0
     private var keepAwakeEnabled = false
@@ -74,6 +76,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let hasAX = note.object as? Bool ?? false
             self?.showPermissionReminder(hasAccessibility: hasAX)
         }
+        AppSettings.shared.$cuteMode
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyStatusBarTint() }
+            .store(in: &cancellables)
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
             AutoUpdater.shared.checkSilently()
         }
@@ -262,6 +269,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             statusItem.button?.title = ""
         }
         statusItem.button?.image?.isTemplate = true
+        applyStatusBarTint()
 
         // Parent menu item title
         if keepAwakeEnabled {
@@ -288,6 +296,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         keepAwakeOffItem?.state = keepAwakeEnabled ? .off : .on
         for entry in keepAwakeSubmenuItems {
             entry.item.state = (keepAwakeEnabled && entry.minutes == keepAwakeCurrentMinutes) ? .on : .off
+        }
+    }
+
+    private func applyStatusBarTint() {
+        if AppSettings.shared.cuteMode {
+            statusItem.button?.contentTintColor = NSColor(red: 1.0, green: 0.08, blue: 0.45, alpha: 1.0)
+        } else {
+            statusItem.button?.contentTintColor = nil
         }
     }
 
