@@ -91,17 +91,50 @@ class ClipboardHistoryManager: ObservableObject {
     }
 
     private func selectedTextViaSystemWide() -> String? {
+        // Method A: system-wide focused element (crosses process boundaries, e.g. browser renderers)
         let systemWide = AXUIElementCreateSystemWide()
         var focusedRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
-              let focused = focusedRef,
-              CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
-        let element = focused as! AXUIElement // safe: CFTypeID verified above
-        var selectedRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &selectedRef) == .success,
-              let text = selectedRef as? String,
-              !text.isEmpty else { return nil }
-        return text
+        if AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
+           let focused = focusedRef, CFGetTypeID(focused) == AXUIElementGetTypeID() {
+            let element = focused as! AXUIElement
+            if let text = extractSelectedText(from: element) { return text }
+        }
+
+        // Method B: frontmost app → focused window → focused element (some browsers expose it here)
+        guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
+        let axApp = AXUIElementCreateApplication(app.processIdentifier)
+        var winRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &winRef) == .success,
+              let win = winRef, CFGetTypeID(win) == AXUIElementGetTypeID() else { return nil }
+        let axWin = win as! AXUIElement
+        var elemRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(axWin, kAXFocusedUIElementAttribute as CFString, &elemRef) == .success,
+              let elem = elemRef, CFGetTypeID(elem) == AXUIElementGetTypeID() else { return nil }
+        return extractSelectedText(from: elem as! AXUIElement)
+    }
+
+    private func extractSelectedText(from element: AXUIElement) -> String? {
+        // Try kAXSelectedTextAttribute directly
+        var ref: AnyObject?
+        if AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &ref) == .success,
+           let text = ref as? String, !text.isEmpty {
+            return text
+        }
+
+        // Fallback: kAXSelectedTextRangeAttribute + kAXValueAttribute
+        var rangeRef: AnyObject?
+        var valueRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
+              let rangeVal = rangeRef,
+              CFGetTypeID(rangeVal) == AXValueGetTypeID(),
+              AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef) == .success,
+              let fullText = valueRef as? String else { return nil }
+        let axVal = rangeVal as! AXValue
+        var cfRange = CFRange(location: 0, length: 0)
+        guard AXValueGetValue(axVal, .cfRange, &cfRange), cfRange.length > 0 else { return nil }
+        guard let range = Range(NSRange(location: cfRange.location, length: cfRange.length), in: fullText) else { return nil }
+        let selected = String(fullText[range])
+        return selected.isEmpty ? nil : selected
     }
 
     // MARK: - Notification handlers

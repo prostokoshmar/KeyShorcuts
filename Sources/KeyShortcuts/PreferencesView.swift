@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct PreferencesView: View {
+    @ObservedObject private var settings = AppSettings.shared
+
     var body: some View {
         TabView {
             GeneralTab()
@@ -16,7 +18,8 @@ struct PreferencesView: View {
                 .tabItem { Label("About", systemImage: "info.circle") }
                 .tag(3)
         }
-        .frame(width: 460, height: 400)
+        .frame(width: 460, height: 430)
+        .tint(settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45) : .accentColor)
     }
 }
 
@@ -103,6 +106,21 @@ private struct GeneralTab: View {
                     }
                     .pickerStyle(.segmented)
                     Text("Press Esc to dismiss. Hover multi-window apps to see their windows.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("App Switcher Layout").font(.headline)
+                    Picker("", selection: $settings.appSwitcherLayout) {
+                        ForEach(AppSwitcherLayout.allCases, id: \.self) {
+                            Text($0.displayName).tag($0)
+                        }
+                    }
+                    .pickerStyle(.segmented).labelsHidden()
+                    Text("Radial Ring floats icons in a circle. Segmented Torus slices a glass donut into wedge tiles. Concentric arranges apps in two rings.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

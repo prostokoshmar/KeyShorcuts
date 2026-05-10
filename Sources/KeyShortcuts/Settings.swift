@@ -29,6 +29,20 @@ enum LiquidGlassIntensity: String, CaseIterable {
     }
 }
 
+enum AppSwitcherLayout: String, CaseIterable {
+    case radialRing     = "radialRing"
+    case segmentedTorus = "segmentedTorus"
+    case concentric     = "concentric"
+
+    var displayName: String {
+        switch self {
+        case .radialRing:     return "Radial Ring"
+        case .segmentedTorus: return "Segmented Torus"
+        case .concentric:     return "Concentric"
+        }
+    }
+}
+
 enum TriggerMode: String, CaseIterable {
     case hold = "hold"
     case doublePress = "doublePress"
@@ -126,6 +140,10 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(appSwitcherShowAll, forKey: "appSwitcherShowAll") }
     }
 
+    @Published var appSwitcherLayout: AppSwitcherLayout {
+        didSet { UserDefaults.standard.set(appSwitcherLayout.rawValue, forKey: "appSwitcherLayout") }
+    }
+
     @Published var clipboardPollingInterval: Double {
         didSet {
             UserDefaults.standard.set(clipboardPollingInterval, forKey: "clipboardPollingInterval")
@@ -179,6 +197,9 @@ class AppSettings: ObservableObject {
         keepAwakeHotkey     = ClipboardHotkey.load(prefix: "keepAwakeHotkey",     fallback: .defaultKeepAwake)
         appSwitcherHotkey   = ClipboardHotkey.load(prefix: "appSwitcherHotkey",   fallback: .defaultAppSwitcher)
         appSwitcherShowAll  = UserDefaults.standard.object(forKey: "appSwitcherShowAll") as? Bool ?? true
+
+        let layoutRaw = UserDefaults.standard.string(forKey: "appSwitcherLayout") ?? ""
+        appSwitcherLayout = AppSwitcherLayout(rawValue: layoutRaw) ?? .radialRing
 
         let pollInterval = UserDefaults.standard.double(forKey: "clipboardPollingInterval")
         clipboardPollingInterval = pollInterval > 0 ? pollInterval : 0.5
