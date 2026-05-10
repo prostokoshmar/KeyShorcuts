@@ -165,6 +165,10 @@ class AppSettings: ObservableObject {
         }
     }
 
+    @Published var autoSelectSimulateCmdC: Bool {
+        didSet { UserDefaults.standard.set(autoSelectSimulateCmdC, forKey: "autoSelectSimulateCmdC") }
+    }
+
     @Published var clipboardCaptureEnabled: Bool {
         didSet {
             UserDefaults.standard.set(clipboardCaptureEnabled, forKey: "clipboardCaptureEnabled")
@@ -217,6 +221,7 @@ class AppSettings: ObservableObject {
         autoSelectPollingInterval = selInterval > 0 ? selInterval : 5.0
 
         clipboardCaptureEnabled = UserDefaults.standard.object(forKey: "clipboardCaptureEnabled") as? Bool ?? true
+        autoSelectSimulateCmdC  = UserDefaults.standard.object(forKey: "autoSelectSimulateCmdC")  as? Bool ?? true
 
         if let raw = UserDefaults.standard.object(forKey: "liquidGlassEnabled") as? Bool {
             liquidGlassEnabled = raw

@@ -9,6 +9,7 @@ class ClipboardHistoryManager: ObservableObject {
     private var pollTimer: Timer?
     private var selectionTimer: Timer?
     private var lastSelectedText: String = ""
+    private var lastSelectedRange: NSRange? = nil
     private let userDefaultsKey = "clipboardTextHistory"
 
     private init() {
@@ -74,12 +75,62 @@ class ClipboardHistoryManager: ObservableObject {
         selectionTimer?.invalidate()
         selectionTimer = nil
         lastSelectedText = ""
+        lastSelectedRange = nil
     }
 
     private func checkSelectedText() {
-        // Use the system-wide AX element to get the truly-focused element across all
-        // processes — this fixes browsers (Chrome, Firefox) which render in a separate
-        // renderer process that AXUIElementCreateApplication(pid) cannot reach.
+        if AppSettings.shared.autoSelectSimulateCmdC {
+            checkSelectionAndSimulateCmdC()
+        } else {
+            checkSelectionViaAX()
+        }
+    }
+
+    // MARK: Cmd+C simulation path (works in browsers)
+
+    private func checkSelectionAndSimulateCmdC() {
+        guard let range = selectedRangeViaSystemWide(), range.length > 0 else {
+            lastSelectedRange = nil
+            return
+        }
+        guard range != lastSelectedRange else { return }
+        lastSelectedRange = range
+        simulateCmdC()
+        // The clipboard poller picks up the result on its next tick
+    }
+
+    private func selectedRangeViaSystemWide() -> NSRange? {
+        let systemWide = AXUIElementCreateSystemWide()
+        var focusedRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
+              let focused = focusedRef, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
+        return extractSelectedRange(from: focused as! AXUIElement)
+    }
+
+    private func extractSelectedRange(from element: AXUIElement) -> NSRange? {
+        var rangeRef: AnyObject?
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
+              let rangeVal = rangeRef, CFGetTypeID(rangeVal) == AXValueGetTypeID() else { return nil }
+        let axVal = rangeVal as! AXValue
+        var cfRange = CFRange(location: 0, length: 0)
+        guard AXValueGetValue(axVal, .cfRange, &cfRange), cfRange.length > 0 else { return nil }
+        return NSRange(location: cfRange.location, length: cfRange.length)
+    }
+
+    private func simulateCmdC() {
+        let src = CGEventSource(stateID: .hidSystemState)
+        let cKey: CGKeyCode = 8
+        let down = CGEvent(keyboardEventSource: src, virtualKey: cKey, keyDown: true)
+        let up   = CGEvent(keyboardEventSource: src, virtualKey: cKey, keyDown: false)
+        down?.flags = .maskCommand
+        up?.flags   = .maskCommand
+        down?.post(tap: .cgSessionEventTap)
+        up?.post(tap: .cgSessionEventTap)
+    }
+
+    // MARK: Direct AX text reading path (native apps only)
+
+    private func checkSelectionViaAX() {
         guard let text = selectedTextViaSystemWide() else {
             lastSelectedText = ""
             return
@@ -89,52 +140,40 @@ class ClipboardHistoryManager: ObservableObject {
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
-        lastChangeCount = pb.changeCount   // don't re-ingest via the clipboard poller
+        lastChangeCount = pb.changeCount
         addItem(ClipboardItem(content: .text(text)))
     }
 
     private func selectedTextViaSystemWide() -> String? {
-        // Method A: system-wide focused element (crosses process boundaries, e.g. browser renderers)
         let systemWide = AXUIElementCreateSystemWide()
         var focusedRef: AnyObject?
         if AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
            let focused = focusedRef, CFGetTypeID(focused) == AXUIElementGetTypeID() {
-            let element = focused as! AXUIElement
-            if let text = extractSelectedText(from: element) { return text }
+            if let text = extractSelectedText(from: focused as! AXUIElement) { return text }
         }
-
-        // Method B: frontmost app → focused window → focused element (some browsers expose it here)
         guard let app = NSWorkspace.shared.frontmostApplication else { return nil }
         let axApp = AXUIElementCreateApplication(app.processIdentifier)
         var winRef: AnyObject?
         guard AXUIElementCopyAttributeValue(axApp, kAXFocusedWindowAttribute as CFString, &winRef) == .success,
               let win = winRef, CFGetTypeID(win) == AXUIElementGetTypeID() else { return nil }
-        let axWin = win as! AXUIElement
         var elemRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(axWin, kAXFocusedUIElementAttribute as CFString, &elemRef) == .success,
+        guard AXUIElementCopyAttributeValue(win as! AXUIElement, kAXFocusedUIElementAttribute as CFString, &elemRef) == .success,
               let elem = elemRef, CFGetTypeID(elem) == AXUIElementGetTypeID() else { return nil }
         return extractSelectedText(from: elem as! AXUIElement)
     }
 
     private func extractSelectedText(from element: AXUIElement) -> String? {
-        // Try kAXSelectedTextAttribute directly
         var ref: AnyObject?
         if AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &ref) == .success,
-           let text = ref as? String, !text.isEmpty {
-            return text
-        }
-
-        // Fallback: kAXSelectedTextRangeAttribute + kAXValueAttribute
+           let text = ref as? String, !text.isEmpty { return text }
         var rangeRef: AnyObject?
         var valueRef: AnyObject?
         guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
-              let rangeVal = rangeRef,
-              CFGetTypeID(rangeVal) == AXValueGetTypeID(),
+              let rangeVal = rangeRef, CFGetTypeID(rangeVal) == AXValueGetTypeID(),
               AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &valueRef) == .success,
               let fullText = valueRef as? String else { return nil }
-        let axVal = rangeVal as! AXValue
         var cfRange = CFRange(location: 0, length: 0)
-        guard AXValueGetValue(axVal, .cfRange, &cfRange), cfRange.length > 0 else { return nil }
+        guard AXValueGetValue(rangeVal as! AXValue, .cfRange, &cfRange), cfRange.length > 0 else { return nil }
         guard let range = Range(NSRange(location: cfRange.location, length: cfRange.length), in: fullText) else { return nil }
         let selected = String(fullText[range])
         return selected.isEmpty ? nil : selected
