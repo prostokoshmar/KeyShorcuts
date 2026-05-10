@@ -8,8 +8,9 @@ class ClipboardHistoryManager: ObservableObject {
     private var lastChangeCount: Int = -1
     private var pollTimer: Timer?
     private var selectionTimer: Timer?
+    private var mouseMonitor: Any?
+    private var mouseDownPoint: NSPoint = .zero
     private var lastSelectedText: String = ""
-    private var lastSelectedRange: NSRange? = nil
     private let userDefaultsKey = "clipboardTextHistory"
 
     private init() {
@@ -25,12 +26,15 @@ class ClipboardHistoryManager: ObservableObject {
                                                name: .autoSelectPollingIntervalChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(clipboardCaptureEnabledChanged),
                                                name: .clipboardCaptureEnabledChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(autoSelectSimulateCmdCChanged),
+                                               name: .autoSelectSimulateCmdCChanged, object: nil)
         if AppSettings.shared.autoSelectCopy { startSelectionMonitor() }
     }
 
     deinit {
         pollTimer?.invalidate()
         selectionTimer?.invalidate()
+        if let m = mouseMonitor { NSEvent.removeMonitor(m) }
     }
 
     // MARK: - Clipboard polling
@@ -63,58 +67,40 @@ class ClipboardHistoryManager: ObservableObject {
     // MARK: - Auto-select copy
 
     private func startSelectionMonitor() {
-        selectionTimer?.invalidate()
-        let interval = AppSettings.shared.autoSelectPollingInterval
-        selectionTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
-            self?.checkSelectedText()
+        stopSelectionMonitor()
+        if AppSettings.shared.autoSelectSimulateCmdC {
+            startMouseMonitor()
+        } else {
+            startAXTimer()
         }
-        RunLoop.main.add(selectionTimer!, forMode: .common)
     }
 
     private func stopSelectionMonitor() {
         selectionTimer?.invalidate()
         selectionTimer = nil
+        if let m = mouseMonitor { NSEvent.removeMonitor(m); mouseMonitor = nil }
         lastSelectedText = ""
-        lastSelectedRange = nil
     }
 
-    private func checkSelectedText() {
-        if AppSettings.shared.autoSelectSimulateCmdC {
-            checkSelectionAndSimulateCmdC()
-        } else {
-            checkSelectionViaAX()
+    // MARK: Mouse-drag trigger (Cmd+C simulation — works in browsers)
+
+    private func startMouseMonitor() {
+        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .leftMouseUp]) { [weak self] event in
+            guard let self else { return }
+            switch event.type {
+            case .leftMouseDown:
+                self.mouseDownPoint = NSEvent.mouseLocation
+            case .leftMouseUp:
+                let loc = NSEvent.mouseLocation
+                let dist = hypot(loc.x - self.mouseDownPoint.x, loc.y - self.mouseDownPoint.y)
+                // Only fire after a drag (> 4 pt), not a plain click
+                guard dist > 4 else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+                    self.simulateCmdC()
+                }
+            default: break
+            }
         }
-    }
-
-    // MARK: Cmd+C simulation path (works in browsers)
-
-    private func checkSelectionAndSimulateCmdC() {
-        guard let range = selectedRangeViaSystemWide(), range.length > 0 else {
-            lastSelectedRange = nil
-            return
-        }
-        guard range != lastSelectedRange else { return }
-        lastSelectedRange = range
-        simulateCmdC()
-        // The clipboard poller picks up the result on its next tick
-    }
-
-    private func selectedRangeViaSystemWide() -> NSRange? {
-        let systemWide = AXUIElementCreateSystemWide()
-        var focusedRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
-              let focused = focusedRef, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
-        return extractSelectedRange(from: focused as! AXUIElement)
-    }
-
-    private func extractSelectedRange(from element: AXUIElement) -> NSRange? {
-        var rangeRef: AnyObject?
-        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeRef) == .success,
-              let rangeVal = rangeRef, CFGetTypeID(rangeVal) == AXValueGetTypeID() else { return nil }
-        let axVal = rangeVal as! AXValue
-        var cfRange = CFRange(location: 0, length: 0)
-        guard AXValueGetValue(axVal, .cfRange, &cfRange), cfRange.length > 0 else { return nil }
-        return NSRange(location: cfRange.location, length: cfRange.length)
     }
 
     private func simulateCmdC() {
@@ -126,9 +112,19 @@ class ClipboardHistoryManager: ObservableObject {
         up?.flags   = .maskCommand
         down?.post(tap: .cgSessionEventTap)
         up?.post(tap: .cgSessionEventTap)
+        // The clipboard poller picks up any resulting content on its next tick
     }
 
-    // MARK: Direct AX text reading path (native apps only)
+    // MARK: AX polling (direct text reading — native apps only)
+
+    private func startAXTimer() {
+        selectionTimer?.invalidate()
+        let interval = AppSettings.shared.autoSelectPollingInterval
+        selectionTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            self?.checkSelectionViaAX()
+        }
+        RunLoop.main.add(selectionTimer!, forMode: .common)
+    }
 
     private func checkSelectionViaAX() {
         guard let text = selectedTextViaSystemWide() else {
@@ -191,14 +187,14 @@ class ClipboardHistoryManager: ObservableObject {
     }
 
     @objc private func autoSelectCopyChanged() {
-        if AppSettings.shared.autoSelectCopy {
-            startSelectionMonitor()
-        } else {
-            stopSelectionMonitor()
-        }
+        if AppSettings.shared.autoSelectCopy { startSelectionMonitor() } else { stopSelectionMonitor() }
     }
 
     @objc private func autoSelectPollingIntervalChanged() {
+        if AppSettings.shared.autoSelectCopy && !AppSettings.shared.autoSelectSimulateCmdC { startAXTimer() }
+    }
+
+    @objc private func autoSelectSimulateCmdCChanged() {
         if AppSettings.shared.autoSelectCopy { startSelectionMonitor() }
     }
 

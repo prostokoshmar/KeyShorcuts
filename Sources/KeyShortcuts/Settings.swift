@@ -166,7 +166,10 @@ class AppSettings: ObservableObject {
     }
 
     @Published var autoSelectSimulateCmdC: Bool {
-        didSet { UserDefaults.standard.set(autoSelectSimulateCmdC, forKey: "autoSelectSimulateCmdC") }
+        didSet {
+            UserDefaults.standard.set(autoSelectSimulateCmdC, forKey: "autoSelectSimulateCmdC")
+            NotificationCenter.default.post(name: .autoSelectSimulateCmdCChanged, object: nil)
+        }
     }
 
     @Published var clipboardCaptureEnabled: Bool {
@@ -241,7 +244,8 @@ extension Notification.Name {
     static let clipboardPollingIntervalChanged  = Notification.Name("clipboardPollingIntervalChanged")
     static let autoSelectCopyChanged             = Notification.Name("autoSelectCopyChanged")
     static let autoSelectPollingIntervalChanged  = Notification.Name("autoSelectPollingIntervalChanged")
-    static let clipboardCaptureEnabledChanged    = Notification.Name("clipboardCaptureEnabledChanged")
+    static let clipboardCaptureEnabledChanged      = Notification.Name("clipboardCaptureEnabledChanged")
+    static let autoSelectSimulateCmdCChanged       = Notification.Name("autoSelectSimulateCmdCChanged")
     static let keyMonitorPermissionFailed        = Notification.Name("keyMonitorPermissionFailed")
     static let clipboardEditingBegan             = Notification.Name("clipboardEditingBegan")
 }

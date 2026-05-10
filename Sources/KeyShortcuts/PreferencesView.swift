@@ -133,12 +133,6 @@ private struct ClipboardTab: View {
                         HotkeyRecorderView(hotkey: $settings.clipboardHotkey)
                     }
 
-                    Toggle("Capture ⌘C copies", isOn: $settings.clipboardCaptureEnabled)
-                        .toggleStyle(.switch)
-                    Text("Track clipboard changes from ⌘C and any other copy action.")
-                        .font(.caption).foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-
                     HStack {
                         Text("Maximum items")
                         Spacer()
