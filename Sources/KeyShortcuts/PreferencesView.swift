@@ -171,9 +171,14 @@ private struct ClipboardTab: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Auto-copy Selected Text").font(.headline)
                     Toggle("Enable", isOn: $settings.autoSelectCopy).toggleStyle(.switch)
-                    Text("Adds selected text to history without ⌘C. One Accessibility call per tick — typically < 0.1 ms.")
+
+                    Toggle("Simulate ⌘C on selection", isOn: $settings.autoSelectSimulateCmdC)
+                        .toggleStyle(.switch)
+                        .disabled(!settings.autoSelectCopy)
+                    Text("ON: detects selection range via AX, fires ⌘C — works in browsers. OFF: reads text directly via AX — native apps only.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
+                        .opacity(settings.autoSelectCopy ? 1 : 0.4)
 
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
