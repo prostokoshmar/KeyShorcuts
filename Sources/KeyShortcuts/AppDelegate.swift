@@ -256,20 +256,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Status bar icon + inline countdown text
         if keepAwakeEnabled {
-            statusItem.button?.image = NSImage(systemSymbolName: "keyboard.badge.eye",
-                                               accessibilityDescription: "Key Shortcuts – Keep Awake")
+            setStatusBarImage(symbolName: "keyboard.badge.eye", desc: "Key Shortcuts – Keep Awake")
             if let rem = remaining, rem > 0 {
                 statusItem.button?.title = " \(compact(rem))"
             } else {
                 statusItem.button?.title = ""
             }
         } else {
-            statusItem.button?.image = NSImage(systemSymbolName: "keyboard",
-                                               accessibilityDescription: "Key Shortcuts")
+            setStatusBarImage(symbolName: "keyboard", desc: "Key Shortcuts")
             statusItem.button?.title = ""
         }
-        statusItem.button?.image?.isTemplate = true
-        applyStatusBarTint()
 
         // Parent menu item title
         if keepAwakeEnabled {
@@ -299,12 +295,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    private func applyStatusBarTint() {
+    private func setStatusBarImage(symbolName: String, desc: String) {
+        guard let button = statusItem.button else { return }
         if AppSettings.shared.cuteMode {
-            statusItem.button?.contentTintColor = NSColor(red: 1.0, green: 0.08, blue: 0.45, alpha: 1.0)
-        } else {
-            statusItem.button?.contentTintColor = nil
+            let pink = NSColor(red: 1.0, green: 0.08, blue: 0.45, alpha: 1.0)
+            let config = NSImage.SymbolConfiguration(paletteColors: [pink])
+            if let img = NSImage(systemSymbolName: symbolName, accessibilityDescription: desc)?
+                .withSymbolConfiguration(config) {
+                button.image = img
+                button.image?.isTemplate = false
+                button.contentTintColor = nil
+                return
+            }
         }
+        button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: desc)
+        button.image?.isTemplate = true
+        button.contentTintColor = nil
+    }
+
+    private func applyStatusBarTint() {
+        refreshKeepAwakeUI()
     }
 
     // "47m" / "1h12m" — compact for the icon badge
