@@ -165,6 +165,13 @@ class AppSettings: ObservableObject {
         }
     }
 
+    @Published var clipboardCaptureEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(clipboardCaptureEnabled, forKey: "clipboardCaptureEnabled")
+            NotificationCenter.default.post(name: .clipboardCaptureEnabledChanged, object: nil)
+        }
+    }
+
     @Published var liquidGlassEnabled: Bool {
         didSet { UserDefaults.standard.set(liquidGlassEnabled, forKey: "liquidGlassEnabled") }
     }
@@ -209,6 +216,8 @@ class AppSettings: ObservableObject {
         let selInterval = UserDefaults.standard.double(forKey: "autoSelectPollingInterval")
         autoSelectPollingInterval = selInterval > 0 ? selInterval : 5.0
 
+        clipboardCaptureEnabled = UserDefaults.standard.object(forKey: "clipboardCaptureEnabled") as? Bool ?? true
+
         if let raw = UserDefaults.standard.object(forKey: "liquidGlassEnabled") as? Bool {
             liquidGlassEnabled = raw
         } else {
@@ -227,6 +236,7 @@ extension Notification.Name {
     static let clipboardPollingIntervalChanged  = Notification.Name("clipboardPollingIntervalChanged")
     static let autoSelectCopyChanged             = Notification.Name("autoSelectCopyChanged")
     static let autoSelectPollingIntervalChanged  = Notification.Name("autoSelectPollingIntervalChanged")
+    static let clipboardCaptureEnabledChanged    = Notification.Name("clipboardCaptureEnabledChanged")
     static let keyMonitorPermissionFailed        = Notification.Name("keyMonitorPermissionFailed")
     static let clipboardEditingBegan             = Notification.Name("clipboardEditingBegan")
 }

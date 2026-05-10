@@ -18,7 +18,7 @@ struct PreferencesView: View {
                 .tabItem { Label("About", systemImage: "info.circle") }
                 .tag(3)
         }
-        .frame(width: 460, height: 430)
+        .frame(width: 500, height: 540)
         .tint(settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45) : .accentColor)
     }
 }
@@ -110,20 +110,6 @@ private struct GeneralTab: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Divider()
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("App Switcher Layout").font(.headline)
-                    Picker("", selection: $settings.appSwitcherLayout) {
-                        ForEach(AppSwitcherLayout.allCases, id: \.self) {
-                            Text($0.displayName).tag($0)
-                        }
-                    }
-                    .pickerStyle(.segmented).labelsHidden()
-                    Text("Radial Ring floats icons in a circle. Segmented Torus slices a glass donut into wedge tiles. Concentric arranges apps in two rings.")
-                        .font(.caption).foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
             }
             .padding(24)
         }
@@ -146,6 +132,12 @@ private struct ClipboardTab: View {
                         Spacer()
                         HotkeyRecorderView(hotkey: $settings.clipboardHotkey)
                     }
+
+                    Toggle("Capture ⌘C copies", isOn: $settings.clipboardCaptureEnabled)
+                        .toggleStyle(.switch)
+                    Text("Track clipboard changes from ⌘C and any other copy action.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     HStack {
                         Text("Maximum items")
@@ -253,6 +245,21 @@ private struct AppearanceTab: View {
                         .toggleStyle(.switch)
                         .tint(Color(red: 1, green: 0.08, blue: 0.45))
                     Text("Applies a deep pink tint to all overlay backgrounds, key badges, hover states, and borders.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("App Switcher Layout").font(.headline)
+                    Picker("", selection: $settings.appSwitcherLayout) {
+                        ForEach(AppSwitcherLayout.allCases, id: \.self) {
+                            Text($0.displayName).tag($0)
+                        }
+                    }
+                    .pickerStyle(.segmented).labelsHidden()
+                    Text("Radial Ring floats icons in a circle. Segmented Torus slices a glass donut into wedge tiles. Concentric arranges apps in two rings.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
