@@ -24,7 +24,7 @@ struct AppSwitcherView: View {
 
     static func containerSize(for count: Int, layout: AppSwitcherLayout = .radialRing) -> CGFloat {
         switch layout {
-        case .segmentedTorus, .concentric: return 520
+        case .segmentedTorus, .concentric: return 840
         case .radialRing: return (dynamicRadius(for: count) + 220) * 2
         }
     }
@@ -137,39 +137,30 @@ private struct SegmentedTorusLayout: View {
     let onDismiss: () -> Void
 
     @State private var hoveredAppID: pid_t? = nil
+    @State private var hoverGen: Int = 0
     @ObservedObject private var settings = AppSettings.shared
 
     private let outerR: CGFloat = 200
     private let innerR: CGFloat = 96
-    private let canvasSize: CGFloat = 460
+    private let canvasSize: CGFloat = 840
 
     var body: some View {
         ZStack {
-            // Wedges
             ForEach(Array(apps.enumerated()), id: \.element.id) { i, entry in
                 TorusWedge(
                     index: i, total: apps.count,
                     outerR: outerR, innerR: innerR, canvasSize: canvasSize,
                     entry: entry,
                     isHovered: hoveredAppID == entry.id,
-                    onHover: { over in
-                        withAnimation(.spring(response: 0.22, dampingFraction: 0.75)) {
-                            hoveredAppID = over ? entry.id : nil
-                        }
-                    },
                     onTap: { onAppChosen(entry) }
                 )
             }
 
-            // Outer + inner rim circles
             Circle().stroke(Color.white.opacity(0.18), lineWidth: 1).frame(width: outerR * 2, height: outerR * 2)
             Circle().stroke(Color.white.opacity(0.10), lineWidth: 1).frame(width: innerR * 2, height: innerR * 2)
-
-            // Center cue
             Circle().fill(Color.white.opacity(0.55)).frame(width: 8, height: 8)
                 .shadow(color: .white.opacity(0.3), radius: 8)
 
-            // Window list card for hovered entry
             ForEach(apps) { entry in
                 if hoveredAppID == entry.id && entry.windows.count > 1 {
                     let i = apps.firstIndex(where: { $0.id == entry.id }) ?? 0
@@ -179,6 +170,9 @@ private struct SegmentedTorusLayout: View {
                         windows: entry.windows,
                         onWindowChosen: { win in onWindowChosen(entry, win) }
                     )
+                    .onHover { over in
+                        if over { hoverGen += 1 } else { scheduleHoverClear() }
+                    }
                     .offset(x: cos(angle) * cardR, y: sin(angle) * cardR)
                     .zIndex(100)
                     .transition(.opacity.combined(with: .scale(scale: 0.92)))
@@ -186,6 +180,56 @@ private struct SegmentedTorusLayout: View {
             }
         }
         .frame(width: canvasSize, height: canvasSize)
+        .onContinuousHover { phase in
+            handleHover(phase)
+        }
+    }
+
+    private func handleHover(_ phase: HoverPhase) {
+        switch phase {
+        case .active(let pt):
+            let cx = canvasSize / 2
+            let cy = canvasSize / 2
+            let dx = pt.x - cx
+            let dy = pt.y - cy
+            let dist = sqrt(dx * dx + dy * dy)
+
+            if dist >= Double(innerR) && dist <= Double(outerR) + 14 {
+                let angle = atan2(Double(dy), Double(dx))
+                let sliceAngle = 2 * .pi / Double(apps.count)
+                var found: pid_t? = nil
+                for (i, entry) in apps.enumerated() {
+                    let mid = -.pi / 2 + Double(i) * sliceAngle
+                    var diff = angle - mid
+                    while diff >  .pi { diff -= 2 * .pi }
+                    while diff < -.pi { diff += 2 * .pi }
+                    if abs(diff) < sliceAngle / 2 { found = entry.id; break }
+                }
+                if found != hoveredAppID {
+                    hoverGen += 1
+                    withAnimation(.spring(response: 0.22, dampingFraction: 0.75)) {
+                        hoveredAppID = found
+                    }
+                }
+            } else {
+                scheduleHoverClear()
+            }
+
+        case .ended:
+            scheduleHoverClear()
+        }
+    }
+
+    private func scheduleHoverClear() {
+        hoverGen += 1
+        let gen = hoverGen
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard hoverGen == gen else { return }
+            withAnimation(.spring(response: 0.22, dampingFraction: 0.75)) {
+                hoveredAppID = nil
+            }
+        }
     }
 }
 
@@ -197,7 +241,6 @@ private struct TorusWedge: View {
     let canvasSize: CGFloat
     let entry: RunningAppEntry
     let isHovered: Bool
-    let onHover: (Bool) -> Void
     let onTap: () -> Void
 
     @ObservedObject private var settings = AppSettings.shared
@@ -266,7 +309,6 @@ private struct TorusWedge: View {
                               startRad: midAngle - sliceAngle / 2,
                               endRad:   midAngle + sliceAngle / 2)
         )
-        .onHover { onHover($0) }
         .onTapGesture { onTap() }
     }
 
@@ -367,7 +409,7 @@ private struct ConcentricLayout: View {
                 }
             }
         }
-        .frame(width: 520, height: 520)
+        .frame(width: 840, height: 840)
     }
 
     @ViewBuilder

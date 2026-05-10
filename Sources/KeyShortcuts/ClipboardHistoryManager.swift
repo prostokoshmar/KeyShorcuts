@@ -22,6 +22,8 @@ class ClipboardHistoryManager: ObservableObject {
                                                name: .autoSelectCopyChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(autoSelectPollingIntervalChanged),
                                                name: .autoSelectPollingIntervalChanged, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(clipboardCaptureEnabledChanged),
+                                               name: .clipboardCaptureEnabledChanged, object: nil)
         if AppSettings.shared.autoSelectCopy { startSelectionMonitor() }
     }
 
@@ -45,6 +47,7 @@ class ClipboardHistoryManager: ObservableObject {
         let pb = NSPasteboard.general
         guard pb.changeCount != lastChangeCount else { return }
         lastChangeCount = pb.changeCount
+        guard AppSettings.shared.clipboardCaptureEnabled else { return }
 
         if let text = pb.string(forType: .string), !text.isEmpty {
             addItem(ClipboardItem(content: .text(text)))
@@ -158,6 +161,15 @@ class ClipboardHistoryManager: ObservableObject {
 
     @objc private func autoSelectPollingIntervalChanged() {
         if AppSettings.shared.autoSelectCopy { startSelectionMonitor() }
+    }
+
+    @objc private func clipboardCaptureEnabledChanged() {
+        if AppSettings.shared.clipboardCaptureEnabled {
+            startPolling()
+        } else {
+            pollTimer?.invalidate()
+            pollTimer = nil
+        }
     }
 
     // MARK: - CRUD
