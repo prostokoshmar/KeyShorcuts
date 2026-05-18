@@ -314,3 +314,6 @@ private struct AboutTab: View {
         .frame(maxWidth: .infinity)
     }
 }
+#Preview {
+    PreferencesView()
+}

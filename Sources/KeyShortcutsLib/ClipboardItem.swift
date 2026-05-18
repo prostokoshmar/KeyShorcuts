@@ -3,6 +3,7 @@ import Cocoa
 enum ClipboardContent {
     case text(String)
     case image(NSImage)
+    case table(html: String, rows: [[String]])
 }
 
 struct ClipboardItem: Identifiable {

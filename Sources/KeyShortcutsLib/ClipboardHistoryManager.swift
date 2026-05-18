@@ -54,7 +54,10 @@ class ClipboardHistoryManager: ObservableObject {
         lastChangeCount = pb.changeCount
         guard AppSettings.shared.clipboardCaptureEnabled else { return }
 
-        if let text = pb.string(forType: .string), !text.isEmpty {
+        let htmlType = NSPasteboard.PasteboardType("public.html")
+        if let html = pb.string(forType: htmlType), let rows = parseHTMLTable(html), !rows.isEmpty {
+            addItem(ClipboardItem(content: .table(html: html, rows: rows)))
+        } else if let text = pb.string(forType: .string), !text.isEmpty {
             addItem(ClipboardItem(content: .text(text)))
         } else if let data = pb.data(forType: .tiff), let image = NSImage(data: data) {
             addItem(ClipboardItem(content: .image(image)))
@@ -62,6 +65,58 @@ class ClipboardHistoryManager: ObservableObject {
                   let image = NSImage(data: data) {
             addItem(ClipboardItem(content: .image(image)))
         }
+    }
+
+    // MARK: - HTML table parsing
+
+    func parseHTMLTable(_ html: String) -> [[String]]? {
+        guard html.range(of: "<table", options: .caseInsensitive) != nil else { return nil }
+
+        guard let trRegex = try? NSRegularExpression(
+            pattern: "<tr[^>]*>(.*?)</tr>",
+            options: [.caseInsensitive, .dotMatchesLineSeparators]
+        ),
+        let cellRegex = try? NSRegularExpression(
+            pattern: "<t[dh][^>]*>(.*?)</t[dh]>",
+            options: [.caseInsensitive, .dotMatchesLineSeparators]
+        ),
+        let tagRegex = try? NSRegularExpression(pattern: "<[^>]+>", options: .caseInsensitive)
+        else { return nil }
+
+        let trMatches = trRegex.matches(in: html, range: NSRange(html.startIndex..., in: html))
+        var rows: [[String]] = []
+
+        for match in trMatches {
+            guard let rowRange = Range(match.range(at: 1), in: html) else { continue }
+            let rowHTML = String(html[rowRange])
+            let cellMatches = cellRegex.matches(in: rowHTML, range: NSRange(rowHTML.startIndex..., in: rowHTML))
+            var cells: [String] = []
+            for cellMatch in cellMatches {
+                guard let cellRange = Range(cellMatch.range(at: 1), in: rowHTML) else { continue }
+                var cell = String(rowHTML[cellRange])
+                cell = tagRegex.stringByReplacingMatches(in: cell, range: NSRange(cell.startIndex..., in: cell), withTemplate: "")
+                cell = cell
+                    .replacingOccurrences(of: "&nbsp;", with: " ")
+                    .replacingOccurrences(of: "&#160;", with: " ")
+                    .replacingOccurrences(of: "&amp;", with: "&")
+                    .replacingOccurrences(of: "&lt;", with: "<")
+                    .replacingOccurrences(of: "&gt;", with: ">")
+                    .replacingOccurrences(of: "&quot;", with: "\"")
+                    .replacingOccurrences(of: "&#39;", with: "'")
+                    .replacingOccurrences(of: "&apos;", with: "'")
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                cells.append(cell)
+            }
+            if !cells.isEmpty { rows.append(cells) }
+        }
+        return rows.isEmpty ? nil : rows
+    }
+
+    func tsvString(from rows: [[String]]) -> String {
+        rows.map { cells in
+            cells.map { $0.replacingOccurrences(of: "\t", with: " ").replacingOccurrences(of: "\n", with: " ") }
+                .joined(separator: "\t")
+        }.joined(separator: "\n")
     }
 
     // MARK: - Auto-select copy
@@ -210,9 +265,13 @@ class ClipboardHistoryManager: ObservableObject {
     // MARK: - CRUD
 
     private func addItem(_ item: ClipboardItem) {
-        if case .text(let newText) = item.content,
-           let first = items.first, case .text(let oldText) = first.content,
-           newText == oldText { return }
+        if let first = items.first {
+            switch (item.content, first.content) {
+            case (.text(let a), .text(let b)) where a == b: return
+            case (.table(let a, _), .table(let b, _)) where a == b: return
+            default: break
+            }
+        }
 
         items.insert(item, at: 0)
         enforceLimit()
@@ -244,7 +303,11 @@ class ClipboardHistoryManager: ObservableObject {
         let pb = NSPasteboard.general
         pb.clearContents()
         switch item.content {
-        case .text(let s):   pb.setString(s, forType: .string)
+        case .text(let s):
+            pb.setString(s, forType: .string)
+        case .table(let html, let rows):
+            pb.setString(html, forType: NSPasteboard.PasteboardType("public.html"))
+            pb.setString(tsvString(from: rows), forType: .string)
         case .image(let img):
             if let tiff = img.tiffRepresentation { pb.setData(tiff, forType: .tiff) }
         }
@@ -266,10 +329,15 @@ class ClipboardHistoryManager: ObservableObject {
 
     // MARK: - Persistence (text only; images are in-memory only)
 
+    private let tablePrefix = "__TBLHTML__\n"
+
     private func persistTextItems() {
         let strings = items.compactMap { item -> String? in
-            if case .text(let s) = item.content { return s }
-            return nil
+            switch item.content {
+            case .text(let s): return s
+            case .table(let html, _): return tablePrefix + html
+            case .image: return nil
+            }
         }
         UserDefaults.standard.set(strings, forKey: userDefaultsKey)
     }
@@ -280,7 +348,14 @@ class ClipboardHistoryManager: ObservableObject {
             return
         }
         let limit = AppSettings.shared.clipboardHistoryLimit
-        items = strings.prefix(limit).map { ClipboardItem(content: .text($0)) }
+        items = strings.prefix(limit).compactMap { s -> ClipboardItem? in
+            if s.hasPrefix(tablePrefix) {
+                let html = String(s.dropFirst(tablePrefix.count))
+                guard let rows = parseHTMLTable(html) else { return ClipboardItem(content: .text(s)) }
+                return ClipboardItem(content: .table(html: html, rows: rows))
+            }
+            return ClipboardItem(content: .text(s))
+        }
         lastChangeCount = NSPasteboard.general.changeCount
     }
 }
