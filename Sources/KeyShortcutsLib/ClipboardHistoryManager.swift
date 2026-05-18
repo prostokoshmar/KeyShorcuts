@@ -58,7 +58,11 @@ class ClipboardHistoryManager: ObservableObject {
         if let html = pb.string(forType: htmlType), let rows = parseHTMLTable(html), !rows.isEmpty {
             addItem(ClipboardItem(content: .table(html: html, rows: rows)))
         } else if let text = pb.string(forType: .string), !text.isEmpty {
-            addItem(ClipboardItem(content: .text(text)))
+            if let rows = parseMarkdownTable(text) {
+                addItem(ClipboardItem(content: .table(html: rowsToHTML(rows), rows: rows)))
+            } else {
+                addItem(ClipboardItem(content: .text(text)))
+            }
         } else if let data = pb.data(forType: .tiff), let image = NSImage(data: data) {
             addItem(ClipboardItem(content: .image(image)))
         } else if let data = pb.data(forType: NSPasteboard.PasteboardType("public.png")),
@@ -117,6 +121,48 @@ class ClipboardHistoryManager: ObservableObject {
             cells.map { $0.replacingOccurrences(of: "\t", with: " ").replacingOccurrences(of: "\n", with: " ") }
                 .joined(separator: "\t")
         }.joined(separator: "\n")
+    }
+
+    func parseMarkdownTable(_ text: String) -> [[String]]? {
+        let lines = text.components(separatedBy: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        guard lines.count >= 2, lines.allSatisfy({ $0.hasPrefix("|") }) else { return nil }
+
+        var rows: [[String]] = []
+        for line in lines {
+            // Skip separator lines like |---|:---:|---|
+            let inner = line.replacingOccurrences(of: "|", with: "")
+                .replacingOccurrences(of: "-", with: "")
+                .replacingOccurrences(of: ":", with: "")
+                .trimmingCharacters(in: .whitespaces)
+            if inner.isEmpty { continue }
+
+            var cells = line.components(separatedBy: "|")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+            if cells.first?.isEmpty == true { cells.removeFirst() }
+            if cells.last?.isEmpty == true { cells.removeLast() }
+            if !cells.isEmpty { rows.append(cells) }
+        }
+        return rows.count >= 1 ? rows : nil
+    }
+
+    func rowsToHTML(_ rows: [[String]], firstRowIsHeader: Bool = true) -> String {
+        var html = "<table>"
+        for (i, row) in rows.enumerated() {
+            html += "<tr>"
+            let tag = (firstRowIsHeader && i == 0) ? "th" : "td"
+            for cell in row {
+                let escaped = cell
+                    .replacingOccurrences(of: "&", with: "&amp;")
+                    .replacingOccurrences(of: "<", with: "&lt;")
+                    .replacingOccurrences(of: ">", with: "&gt;")
+                html += "<\(tag)>\(escaped)</\(tag)>"
+            }
+            html += "</tr>"
+        }
+        html += "</table>"
+        return html
     }
 
     // MARK: - Auto-select copy
