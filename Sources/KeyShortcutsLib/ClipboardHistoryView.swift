@@ -246,6 +246,19 @@ struct ClipboardItemRowView: View {
                 .lineLimit(2)
                 .foregroundStyle(.primary)
 
+        case .table(_, let rows):
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    Image(systemName: "tablecells")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                    Text("Table — \(rows.count) rows × \(rows.first?.count ?? 0) cols")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+                TablePreviewView(rows: rows)
+            }
+
         case .image(let img):
             HStack(spacing: 8) {
                 Image(nsImage: img)
@@ -278,6 +291,9 @@ struct ClipboardItemRowView: View {
         switch item.content {
         case .text(let s):
             return NSItemProvider(object: s as NSString)
+        case .table(_, let rows):
+            let tsv = ClipboardHistoryManager.shared.tsvString(from: rows)
+            return NSItemProvider(object: tsv as NSString)
         case .image(let img):
             let provider = NSItemProvider()
             provider.registerDataRepresentation(forTypeIdentifier: "public.png", visibility: .all) { completion in
@@ -293,7 +309,8 @@ struct ClipboardItemRowView: View {
     private func shareViaAirDrop() {
         var shareItems: [Any]
         switch item.content {
-        case .text(let s):   shareItems = [s]
+        case .text(let s):    shareItems = [s]
+        case .table(_, let rows): shareItems = [ClipboardHistoryManager.shared.tsvString(from: rows)]
         case .image(let img): shareItems = [img]
         }
         NSSharingService(named: .sendViaAirDrop)?.perform(withItems: shareItems)
@@ -352,3 +369,63 @@ private struct FocusedTextEditor: NSViewRepresentable {
         }
     }
 }
+// MARK: - Table preview
+
+private struct TablePreviewView: View {
+    let rows: [[String]]
+
+    private let maxRows = 3
+    private let maxCols = 4
+
+    private var visibleRows: [[String]] { Array(rows.prefix(maxRows)) }
+    private var colCount: Int { min(rows.map(\.count).max() ?? 0, maxCols) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(visibleRows.enumerated()), id: \.offset) { rowIdx, row in
+                HStack(spacing: 0) {
+                    ForEach(0..<colCount, id: \.self) { colIdx in
+                        let text = colIdx < row.count ? row[colIdx] : ""
+                        let isHeader = rowIdx == 0
+                        Text(text.isEmpty ? " " : text)
+                            .font(.system(size: 9, weight: isHeader ? .semibold : .regular))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(isHeader ? Color.primary.opacity(0.07) : Color.clear)
+                        if colIdx < colCount - 1 {
+                            Divider().frame(width: 1)
+                        }
+                    }
+                }
+                if rowIdx < visibleRows.count - 1 {
+                    Divider()
+                }
+            }
+            if rows.count > maxRows {
+                Text("+ \(rows.count - maxRows) more rows")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 4)
+                    .padding(.top, 3)
+            }
+        }
+        .background(Color.primary.opacity(0.03))
+        .cornerRadius(4)
+        .overlay(
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+        )
+    }
+}
+
+#Preview {
+    ClipboardHistoryView(
+        onItemChosen: { _ in },
+        onDismiss: {}
+    )
+}
+// Note: For richer previews, populate ClipboardHistoryManager.shared with mock data.
+

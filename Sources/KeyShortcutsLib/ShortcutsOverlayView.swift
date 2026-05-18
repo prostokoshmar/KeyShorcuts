@@ -179,3 +179,37 @@ struct KeyBadge: View {
             )
     }
 }
+
+// MARK: - Preview
+
+#if DEBUG
+struct PreviewShortcutItem: Identifiable {
+    let id = UUID()
+    let title: String
+    let keys: String
+    let category: String
+}
+
+extension ShortcutItem {
+    static func mock(title: String, keys: String, category: String) -> ShortcutItem {
+        ShortcutItem(title: title, keys: keys, category: category)
+    }
+}
+#Preview {
+    ShortcutsOverlayView(
+        shortcuts: [
+            "File": [
+                .mock(title: "New Window", keys: "⌘N", category: "File"),
+                .mock(title: "Open…", keys: "⌘O", category: "File")
+            ],
+            "Edit": [
+                .mock(title: "Cut", keys: "⌘X", category: "Edit"),
+                .mock(title: "Copy", keys: "⌘C", category: "Edit"),
+                .mock(title: "Paste", keys: "⌘V", category: "Edit")
+            ]
+        ],
+        appName: "Mock App",
+        appIcon: nil
+    )
+}
+#endif
