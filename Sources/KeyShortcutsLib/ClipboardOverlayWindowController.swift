@@ -66,6 +66,7 @@ class ClipboardOverlayWindowController {
             panel?.setFrameOrigin(NSPoint(x: sf.midX - wf.width / 2, y: sf.midY - wf.height / 2))
         }
         panel?.alphaValue = 1
+        NSApp.activate(ignoringOtherApps: true)
         panel?.orderFrontRegardless()
 
         mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
