@@ -47,9 +47,24 @@ echo "→ Creating app bundle..."
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
+mkdir -p "$APP_BUNDLE/Contents/Helpers"
 
 cp "$EXECUTABLE"  "$APP_BUNDLE/Contents/MacOS/${APP_NAME}"
 cp AppIcon.icns   "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+
+# Bundle ffmpeg if present alongside build.sh (Phase 2: place the binary here before building)
+if [ -f "ffmpeg" ]; then
+    echo "→ Bundling ffmpeg..."
+    cp ffmpeg "$APP_BUNDLE/Contents/Helpers/ffmpeg"
+    chmod +x "$APP_BUNDLE/Contents/Helpers/ffmpeg"
+    # Include GPL license (required)
+    if [ -f "ffmpeg-LICENSE.txt" ]; then
+        cp ffmpeg-LICENSE.txt "$APP_BUNDLE/Contents/Helpers/ffmpeg-LICENSE.txt"
+    fi
+    # Sign ffmpeg separately before the deep sign
+    codesign --force --sign - "$APP_BUNDLE/Contents/Helpers/ffmpeg" 2>/dev/null || true
+    echo "✅ ffmpeg bundled and signed"
+fi
 
 cat > "$APP_BUNDLE/Contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -86,6 +101,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" << PLIST
     <false/>
     <key>NSSupportsSuddenTermination</key>
     <false/>
+    <key>NSUserNotificationUsageDescription</key>
+    <string>Key Shortcuts uses notifications to alert you when a file conversion is ready for approval or has completed.</string>
 </dict>
 </plist>
 PLIST

@@ -14,11 +14,14 @@ struct PreferencesView: View {
             AppearanceTab()
                 .tabItem { Label("Appearance", systemImage: "paintbrush") }
                 .tag(2)
+            ConvertTab()
+                .tabItem { Label("Convert", systemImage: "arrow.triangle.2.circlepath") }
+                .tag(3)
             AboutTab()
                 .tabItem { Label("About", systemImage: "info.circle") }
-                .tag(3)
+                .tag(4)
         }
-        .frame(width: 500, height: 540)
+        .frame(width: 500, height: 580)
         .tint(settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45) : .accentColor)
     }
 }
@@ -273,6 +276,137 @@ private struct AppearanceTab: View {
         case .balanced: return "Medium refraction"
         case .max:      return "Full chromatic"
         }
+    }
+}
+
+// MARK: - Convert
+
+private struct ConvertTab: View {
+    @ObservedObject private var settings = AppSettings.shared
+    @ObservedObject private var manager  = ConversionManager.shared
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+
+                // Watched Folders
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Watched Folders").font(.headline)
+                    Text("Files in these folders are monitored. When a file's extension doesn't match its true format, a conversion is proposed.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    ForEach(settings.watchedFolders, id: \.self) { path in
+                        HStack {
+                            Image(systemName: "folder")
+                                .foregroundStyle(.secondary)
+                                .font(.system(size: 13))
+                            Text(path)
+                                .font(.system(size: 12))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer()
+                            Button {
+                                settings.watchedFolders.removeAll { $0 == path }
+                            } label: {
+                                Image(systemName: "minus.circle.fill")
+                                    .foregroundStyle(.red.opacity(0.7))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(Color.primary.opacity(0.04))
+                        .cornerRadius(8)
+                    }
+
+                    Button("Add Folder…") {
+                        addFolder()
+                    }
+                    .controlSize(.small)
+                }
+
+                Divider()
+
+                // Behavior
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Behavior").font(.headline)
+
+                    Toggle("Auto-approve conversions", isOn: $settings.conversionAutoApprove)
+                        .toggleStyle(.switch)
+                    Text("When ON, files are converted automatically without prompting. When OFF (default), each conversion requires your approval.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Toggle("Send notifications", isOn: $settings.conversionNotificationsEnabled)
+                        .toggleStyle(.switch)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Output Mode").font(.headline)
+                    Picker("", selection: $settings.conversionOutputMode) {
+                        ForEach(ConversionOutputMode.allCases, id: \.self) {
+                            Text($0.displayName).tag($0)
+                        }
+                    }
+                    .pickerStyle(.radioGroup)
+                    .labelsHidden()
+                }
+
+                Divider()
+
+                // Engine status
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Engines").font(.headline)
+                    engineRow("Images / PDF / Config / Archives", available: true, note: "Built-in")
+                    engineRow("Audio & Video (ffmpeg)", available: FFmpegEngine.shared.ffmpegPath != nil,
+                              note: FFmpegEngine.shared.ffmpegPath != nil ? "Detected" : "Not found — brew install ffmpeg")
+                    engineRow("Office (LibreOffice)", available: isCommandAvailable("soffice"),
+                              note: isCommandAvailable("soffice") ? "Detected" : "Not found — install LibreOffice")
+                    engineRow("Documents (pandoc)", available: isCommandAvailable("pandoc"),
+                              note: isCommandAvailable("pandoc") ? "Detected" : "Not found — brew install pandoc")
+                    engineRow("E-Books (Calibre)", available: isCommandAvailable("ebook-convert"),
+                              note: isCommandAvailable("ebook-convert") ? "Detected" : "Not found — install Calibre")
+                }
+            }
+            .padding(24)
+        }
+    }
+
+    private func addFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = true
+        panel.prompt = "Add"
+        if panel.runModal() == .OK {
+            let newPaths = panel.urls.map(\.path).filter { !settings.watchedFolders.contains($0) }
+            settings.watchedFolders.append(contentsOf: newPaths)
+        }
+    }
+
+    private func engineRow(_ name: String, available: Bool, note: String) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: available ? "checkmark.circle.fill" : "xmark.circle")
+                .foregroundStyle(available ? .green : .orange)
+                .font(.system(size: 13))
+            Text(name).font(.system(size: 12))
+            Spacer()
+            Text(note)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 8).padding(.vertical, 4)
+    }
+
+    private func isCommandAvailable(_ cmd: String) -> Bool {
+        let fm = FileManager.default
+        let paths = ["/usr/local/bin", "/opt/homebrew/bin", "/usr/bin", "/Applications/LibreOffice.app/Contents/MacOS"]
+        for p in paths {
+            if fm.isExecutableFile(atPath: "\(p)/\(cmd)") { return true }
+        }
+        return false
     }
 }
 
