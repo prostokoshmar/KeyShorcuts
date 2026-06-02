@@ -77,6 +77,14 @@ final class FolderWatcher {
         queue.asyncAfter(deadline: .now() + debounceInterval, execute: work)
     }
 
+    // Subdirectory name components that generate high-volume FSEvents noise.
+    // Files anywhere under these paths are skipped.
+    private static let noisyPathComponents: Set<String> = [
+        "Library", ".build", ".git", ".svn", "node_modules", ".npm",
+        ".gradle", ".idea", "DerivedData", "Pods", ".cache",
+        "Virtual Machines.localized", ".Trash",
+    ]
+
     private func shouldProcess(_ url: URL) -> Bool {
         let name = url.lastPathComponent
         // Ignore hidden files, temp files, and directories
@@ -87,6 +95,11 @@ final class FolderWatcher {
         let ext = url.pathExtension.lowercased()
         let packageExts: Set<String> = ["app", "bundle", "xcodeproj", "xctestproduct", "framework"]
         if packageExts.contains(ext) { return false }
+        // Skip noisy subtrees (Library, node_modules, .build, etc.)
+        let components = url.pathComponents
+        for component in components where FolderWatcher.noisyPathComponents.contains(component) {
+            return false
+        }
         // Must be a regular file
         var isDir: ObjCBool = false
         guard FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir), !isDir.boolValue else { return false }
