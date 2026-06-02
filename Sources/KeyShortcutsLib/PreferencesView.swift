@@ -292,11 +292,36 @@ private struct ConvertTab: View {
                 // Watched Folders
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Watched Folders").font(.headline)
-                    Text("Files in these folders are monitored. When a file's extension doesn't match its true format, a conversion is proposed.")
+                    Text("When a file's extension doesn't match its true format, a conversion is proposed. Noisy system paths (Library, .build, node_modules, .git) are always excluded.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    ForEach(settings.watchedFolders, id: \.self) { path in
+                    // Home folder quick-toggle
+                    HStack {
+                        Image(systemName: "house")
+                            .foregroundStyle(.secondary)
+                            .font(.system(size: 13))
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("Home folder (~)").font(.system(size: 12, weight: .medium))
+                            Text("Covers Desktop, Downloads, Documents and everything else").font(.system(size: 10)).foregroundStyle(.tertiary)
+                        }
+                        Spacer()
+                        Toggle("", isOn: Binding(
+                            get: { settings.watchedFolders.contains(NSHomeDirectory()) },
+                            set: { on in
+                                if on { if !settings.watchedFolders.contains(NSHomeDirectory()) { settings.watchedFolders.append(NSHomeDirectory()) } }
+                                else  { settings.watchedFolders.removeAll { $0 == NSHomeDirectory() } }
+                            }
+                        ))
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 8)
+                    .background(Color.primary.opacity(0.04))
+                    .cornerRadius(8)
+
+                    // Additional custom folders (anything that isn't home)
+                    ForEach(settings.watchedFolders.filter { $0 != NSHomeDirectory() }, id: \.self) { path in
                         HStack {
                             Image(systemName: "folder")
                                 .foregroundStyle(.secondary)
@@ -319,10 +344,8 @@ private struct ConvertTab: View {
                         .cornerRadius(8)
                     }
 
-                    Button("Add Folder…") {
-                        addFolder()
-                    }
-                    .controlSize(.small)
+                    Button("Add Folder…") { addFolder() }
+                        .controlSize(.small)
                 }
 
                 Divider()

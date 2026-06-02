@@ -278,7 +278,12 @@ class AppSettings: ObservableObject {
 
         cuteMode = UserDefaults.standard.object(forKey: "cuteMode") as? Bool ?? false
 
-        watchedFolders = UserDefaults.standard.stringArray(forKey: "watchedFolders") ?? []
+        let savedFolders = UserDefaults.standard.stringArray(forKey: "watchedFolders")
+        let initialFolders = savedFolders ?? [NSHomeDirectory()]
+        if savedFolders == nil {
+            UserDefaults.standard.set(initialFolders, forKey: "watchedFolders")
+        }
+        _watchedFolders = Published(initialValue: initialFolders)
         conversionAutoApprove = UserDefaults.standard.object(forKey: "conversionAutoApprove") as? Bool ?? false
         conversionNotificationsEnabled = UserDefaults.standard.object(forKey: "conversionNotificationsEnabled") as? Bool ?? true
 
