@@ -7,9 +7,15 @@ let package = Package(
     products: [
         .library(name: "KeyShortcutsLib", type: .dynamic, targets: ["KeyShortcutsLib"])
     ],
+    dependencies: [
+        .package(url: "https://github.com/jpsim/Yams.git", from: "5.0.0"),
+    ],
     targets: [
         .target(
             name: "KeyShortcutsLib",
+            dependencies: [
+                .product(name: "Yams", package: "Yams"),
+            ],
             path: "Sources/KeyShortcutsLib"
         ),
         .executableTarget(

@@ -1,5 +1,19 @@
 import Cocoa
 
+enum ConversionOutputMode: String, CaseIterable {
+    case keepBoth     = "keepBoth"
+    case replace      = "replace"
+    case appendSuffix = "appendSuffix"
+
+    var displayName: String {
+        switch self {
+        case .keepBoth:     return "Keep both (original + converted)"
+        case .replace:      return "Replace original"
+        case .appendSuffix: return "Append suffix to converted"
+        }
+    }
+}
+
 enum LiquidGlassIntensity: String, CaseIterable {
     case subtle   = "subtle"
     case balanced = "balanced"
@@ -191,6 +205,33 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(cuteMode, forKey: "cuteMode") }
     }
 
+    // MARK: - Convert
+
+    @Published var watchedFolders: [String] {
+        didSet {
+            UserDefaults.standard.set(watchedFolders, forKey: "watchedFolders")
+            NotificationCenter.default.post(name: .watchedFoldersChanged, object: nil)
+        }
+    }
+
+    @Published var conversionAutoApprove: Bool {
+        didSet {
+            UserDefaults.standard.set(conversionAutoApprove, forKey: "conversionAutoApprove")
+        }
+    }
+
+    @Published var conversionNotificationsEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(conversionNotificationsEnabled, forKey: "conversionNotificationsEnabled")
+        }
+    }
+
+    @Published var conversionOutputMode: ConversionOutputMode {
+        didSet {
+            UserDefaults.standard.set(conversionOutputMode.rawValue, forKey: "conversionOutputMode")
+        }
+    }
+
     private init() {
         let modeRaw = UserDefaults.standard.string(forKey: "triggerMode") ?? ""
         triggerMode = TriggerMode(rawValue: modeRaw) ?? .hold
@@ -236,6 +277,13 @@ class AppSettings: ObservableObject {
         liquidGlassIntensity = LiquidGlassIntensity(rawValue: igRaw) ?? .balanced
 
         cuteMode = UserDefaults.standard.object(forKey: "cuteMode") as? Bool ?? false
+
+        watchedFolders = UserDefaults.standard.stringArray(forKey: "watchedFolders") ?? []
+        conversionAutoApprove = UserDefaults.standard.object(forKey: "conversionAutoApprove") as? Bool ?? false
+        conversionNotificationsEnabled = UserDefaults.standard.object(forKey: "conversionNotificationsEnabled") as? Bool ?? true
+
+        let omRaw = UserDefaults.standard.string(forKey: "conversionOutputMode") ?? ""
+        conversionOutputMode = ConversionOutputMode(rawValue: omRaw) ?? .keepBoth
     }
 }
 
@@ -248,4 +296,6 @@ extension Notification.Name {
     static let autoSelectSimulateCmdCChanged       = Notification.Name("autoSelectSimulateCmdCChanged")
     static let keyMonitorPermissionFailed        = Notification.Name("keyMonitorPermissionFailed")
     static let clipboardEditingBegan             = Notification.Name("clipboardEditingBegan")
+    static let watchedFoldersChanged             = Notification.Name("watchedFoldersChanged")
+    static let conversionQueueChanged            = Notification.Name("conversionQueueChanged")
 }

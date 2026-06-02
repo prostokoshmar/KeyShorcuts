@@ -27,12 +27,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private weak var keepAwakeCountdownSeparator: NSMenuItem?
     private var customDurationWindow: NSWindow?
 
+    // Convert feature
+    private var conversionController: ConversionQueueWindowController?
+    private weak var conversionMenuItem: NSMenuItem?
+    private weak var conversionBadgeItem: NSMenuItem?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
         overlayController       = OverlayWindowController()
         clipboardController     = ClipboardOverlayWindowController()
         appSwitcherController   = AppSwitcherOverlayWindowController()
+        conversionController    = ConversionQueueWindowController()
         _ = ClipboardHistoryManager.shared
+        _ = ConversionManager.shared
 
         keyMonitor = GlobalKeyMonitor(
             callback: { [weak self] isVisible in
@@ -70,6 +77,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 }
             }
         )
+        NotificationCenter.default.addObserver(
+            forName: .conversionQueueChanged, object: nil, queue: .main
+        ) { [weak self] _ in self?.refreshConversionUI() }
+
         NotificationCenter.default.addObserver(
             forName: .keyMonitorPermissionFailed, object: nil, queue: .main
         ) { [weak self] note in
@@ -158,11 +169,78 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         keepAwakeMenuItem = keepAwakeItem
 
         menu.addItem(withTitle: "Clipboard History", action: #selector(toggleClipboardHistory), keyEquivalent: "")
+
+        // Conversions submenu
+        let convItem = NSMenuItem(title: "Conversions", action: nil, keyEquivalent: "")
+        let convSubmenu = NSMenu()
+        convSubmenu.delegate = self
+
+        let openQueueItem = NSMenuItem(title: "Show Queue…", action: #selector(showConversionQueue), keyEquivalent: "")
+        convSubmenu.addItem(openQueueItem)
+        convSubmenu.addItem(.separator())
+
+        let badgeItem = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        badgeItem.isEnabled = false
+        badgeItem.isHidden = true
+        convSubmenu.addItem(badgeItem)
+        conversionBadgeItem = badgeItem
+
+        convSubmenu.addItem(.separator())
+        convSubmenu.addItem(withTitle: "Approve All", action: #selector(approveAllConversions), keyEquivalent: "")
+        convSubmenu.addItem(withTitle: "Dismiss All", action: #selector(dismissAllConversions), keyEquivalent: "")
+
+        convItem.submenu = convSubmenu
+        menu.addItem(convItem)
+        conversionMenuItem = convItem
+
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Preferences…", action: #selector(showPreferences), keyEquivalent: ",")
         menu.addItem(NSMenuItem.separator())
         menu.addItem(withTitle: "Quit Key Shortcuts", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
+    }
+
+    // MARK: - Conversion actions
+
+    @objc private func showConversionQueue() {
+        if conversionController?.isVisible == true {
+            conversionController?.hide()
+        } else {
+            conversionController?.show()
+        }
+    }
+
+    @objc private func approveAllConversions() {
+        ConversionManager.shared.approveAll()
+    }
+
+    @objc private func dismissAllConversions() {
+        ConversionManager.shared.dismissAll()
+    }
+
+    private func refreshConversionUI() {
+        let pending = ConversionManager.shared.pendingCount
+
+        // Badge item text
+        if pending > 0 {
+            conversionBadgeItem?.title = "\(pending) pending"
+            conversionBadgeItem?.isHidden = false
+            conversionMenuItem?.title = "Conversions (\(pending))"
+        } else {
+            conversionBadgeItem?.isHidden = true
+            conversionMenuItem?.title = "Conversions"
+        }
+
+        // Status-bar icon badge for combined keep-awake + pending conversions
+        // Only update if keep-awake is off (keep-awake already owns the badge when on)
+        if !keepAwakeEnabled && pending > 0 {
+            setStatusBarImage(symbolName: "arrow.triangle.2.circlepath", desc: "Key Shortcuts – \(pending) conversion(s) pending")
+            statusItem.button?.title = " \(pending)"
+        } else if !keepAwakeEnabled {
+            setStatusBarImage(symbolName: "keyboard", desc: "Key Shortcuts")
+            statusItem.button?.title = ""
+        }
+        // If keep-awake is active it already controls the icon; don't override it here.
     }
 
     // MARK: - Keep Awake actions
