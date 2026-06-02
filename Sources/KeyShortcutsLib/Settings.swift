@@ -284,7 +284,7 @@ class AppSettings: ObservableObject {
             UserDefaults.standard.set(initialFolders, forKey: "watchedFolders")
         }
         _watchedFolders = Published(initialValue: initialFolders)
-        conversionAutoApprove = UserDefaults.standard.object(forKey: "conversionAutoApprove") as? Bool ?? false
+        conversionAutoApprove = UserDefaults.standard.object(forKey: "conversionAutoApprove") as? Bool ?? true
         conversionNotificationsEnabled = UserDefaults.standard.object(forKey: "conversionNotificationsEnabled") as? Bool ?? true
 
         let omRaw = UserDefaults.standard.string(forKey: "conversionOutputMode") ?? ""

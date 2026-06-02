@@ -145,10 +145,15 @@ final class ConversionManager: ObservableObject {
             self.markWritten([outputURL, originalURL])
 
             do {
-                // Write original bytes under true extension (keep-both or append-suffix mode)
                 let mode = AppSettings.shared.conversionOutputMode
+
+                // Snapshot the source bytes before anything touches the file.
+                // This must happen first so we can preserve the original even when
+                // outputURL == sourceURL (user renamed photo.png → photo.jpg).
+                let origData = try Data(contentsOf: item.sourceURL)
+
+                // Save original bytes under true extension (keep-both / append-suffix)
                 if mode == .keepBoth || mode == .appendSuffix {
-                    let origData = try Data(contentsOf: item.sourceURL)
                     try origData.write(to: originalURL, options: .atomic)
                 }
 
@@ -162,23 +167,22 @@ final class ConversionManager: ObservableObject {
                     }
                 })
 
-                // Atomic move
+                // Atomic replace: remove source/target then move tmp into place
                 if FileManager.default.fileExists(atPath: outputURL.path) {
                     try FileManager.default.removeItem(at: outputURL)
                 }
                 try FileManager.default.moveItem(at: tmp, to: outputURL)
 
-                // Replace original if requested
-                if mode == .replace {
-                    try FileManager.default.removeItem(at: item.sourceURL)
+                // Replace mode: remove source if it wasn't already overwritten above
+                if mode == .replace && outputURL.standardizedFileURL != item.sourceURL.standardizedFileURL {
+                    try? FileManager.default.removeItem(at: item.sourceURL)
                 }
 
                 DispatchQueue.main.async {
                     self.updateState(id: item.id, state: .done)
                     NotificationCenter.default.post(name: .conversionQueueChanged, object: nil)
-                    if AppSettings.shared.conversionNotificationsEnabled {
-                        self.postCompletionNotification(item)
-                    }
+                    // Always notify on completion — user explicitly asked for this
+                    self.postCompletionNotification(item)
                     self.pruneCompleted()
                 }
 
@@ -206,6 +210,12 @@ final class ConversionManager: ObservableObject {
         let ext  = item.targetFormat.fileExtension
         let mode = AppSettings.shared.conversionOutputMode
         let name = mode == .appendSuffix ? "\(stem)_converted.\(ext)" : "\(stem).\(ext)"
+        let candidate = dir.appendingPathComponent(name)
+        // If the output name matches the source file (e.g. user renamed photo.png → photo.jpg
+        // and we want to write photo.jpg), overwrite in place rather than creating photo 2.jpg.
+        if candidate.standardizedFileURL == item.sourceURL.standardizedFileURL {
+            return candidate
+        }
         return uniqueURL(dir: dir, name: name)
     }
 
@@ -213,6 +223,11 @@ final class ConversionManager: ObservableObject {
         let dir  = item.sourceURL.deletingLastPathComponent()
         let stem = item.sourceURL.deletingPathExtension().lastPathComponent
         let ext  = item.detectedSourceFormat.fileExtension
+        // If preserving as the same name as the source, use source path (will be preserved before overwrite)
+        let candidate = dir.appendingPathComponent("\(stem).\(ext)")
+        if candidate.standardizedFileURL == item.sourceURL.standardizedFileURL {
+            return uniqueURL(dir: dir, name: "\(stem).\(ext)", suffix: " (original)")
+        }
         return uniqueURL(dir: dir, name: "\(stem).\(ext)", suffix: " (original)")
     }
 
