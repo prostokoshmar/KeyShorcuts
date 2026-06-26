@@ -4,6 +4,7 @@ struct ClipboardHotkey: Equatable {
     var keyCode: Int
     var keyChar: String    // display character, e.g. "V"
     var modifiers: UInt64  // CGEventFlags.rawValue
+    var doubleTap: Bool = false  // require two quick presses to fire
 
     static let defaultClipboard = ClipboardHotkey(
         keyCode: 9, keyChar: "V",
@@ -32,10 +33,22 @@ struct ClipboardHotkey: Equatable {
 
     var cgModifiers: CGEventFlags { CGEventFlags(rawValue: modifiers) }
 
+    /// Modifier flags that participate in hotkey matching.
+    static let relevantModifierMask: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
+
+    /// True when a key event matches this hotkey (same key code and exact modifier set).
+    /// An unset hotkey (empty `keyChar`) never matches.
+    func matches(keyCode code: Int, flags: CGEventFlags) -> Bool {
+        guard !keyChar.isEmpty else { return false }
+        let mask = ClipboardHotkey.relevantModifierMask
+        return code == keyCode && flags.intersection(mask) == cgModifiers.intersection(mask)
+    }
+
     func save(prefix: String) {
         UserDefaults.standard.set(keyCode,    forKey: "\(prefix)Code")
         UserDefaults.standard.set(keyChar,    forKey: "\(prefix)Char")
         UserDefaults.standard.set(modifiers,  forKey: "\(prefix)Mods")
+        UserDefaults.standard.set(doubleTap,  forKey: "\(prefix)DoubleTap")
     }
 
     static func load(prefix: String, fallback: ClipboardHotkey) -> ClipboardHotkey {
@@ -43,7 +56,8 @@ struct ClipboardHotkey: Equatable {
         guard !char.isEmpty else { return fallback }
         let code = UserDefaults.standard.integer(forKey: "\(prefix)Code")
         let mods = (UserDefaults.standard.object(forKey: "\(prefix)Mods") as? UInt64) ?? 0
-        return ClipboardHotkey(keyCode: code, keyChar: char, modifiers: mods)
+        let dbl  = UserDefaults.standard.bool(forKey: "\(prefix)DoubleTap")
+        return ClipboardHotkey(keyCode: code, keyChar: char, modifiers: mods, doubleTap: dbl)
     }
 }
 

@@ -10,3 +10,5 @@ KeyShortcuts.app/
 KeyShortcuts.dmg
 KeyShortcuts_adhoc.dmg
 KeyShortcuts-*.zip
+releases/
+.swiftpm/
