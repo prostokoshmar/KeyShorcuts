@@ -74,7 +74,7 @@ The Preferences → Convert tab shows which engines are available and links to i
 5. Open **Preferences → Convert** to add watched folders
 6. All hotkeys and settings are configurable in **Preferences** (menu bar icon → Preferences…)
 
-**Hotkeys:** each feature hotkey (Clipboard, Keep Awake, App Switcher) accepts either a modifier chord (e.g. ⌘⇧V) or a **single key** — click the recorder and press one button. Function keys (F1–F20) make ideal single-press triggers; binding a plain letter key will intercept that key system-wide, so prefer a function key. Tick **Double-tap to trigger** to require two quick presses instead of one.
+**Hotkeys:** each feature hotkey (Clipboard, Keep Awake, App Switcher) accepts either a modifier chord (e.g. ⌘⇧V) or a **single function key** (F1–F20) as a one-press trigger — click the recorder and press it. Any non-function key must include a modifier, so ordinary typing is never intercepted. Tick **Double-tap to trigger** to require two quick presses instead of one.
 
 **Launch at login:** toggle in **Preferences → General → Startup** to start Key Shortcuts automatically when you log in.
 

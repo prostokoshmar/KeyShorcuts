@@ -16,7 +16,7 @@ struct HotkeyRecorderView: View {
                         .stroke(isRecording ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.18),
                                 lineWidth: 1)
                 )
-            Text(isRecording ? "Press a key…" : hotkey.displayString)
+            Text(isRecording ? "Press keys or an F-key…" : hotkey.displayString)
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(isRecording ? Color.accentColor : .primary)
                 .padding(.horizontal, 12)
@@ -31,22 +31,34 @@ struct HotkeyRecorderView: View {
     private func startRecording() {
         isRecording = true
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            defer { self.stopMonitor() }
-
             if event.keyCode == 53 { // Esc — cancel
-                self.isRecording = false
+                self.stopMonitor()
                 return nil
             }
 
             let mods = event.modifierFlags.toCGEventFlags
-            // A single key (no modifier) is allowed — e.g. a function key as a one-press trigger.
+            let standard: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
+            let hasModifier = !mods.intersection(standard).isEmpty
+
+            // A bare key (no modifier) is only accepted if it's a function key — those are
+            // safe one-press triggers. Any other key needs a modifier, so keep waiting.
+            guard hasModifier || Self.isFunctionKey(Int(event.keyCode)) else { return nil }
+
             let char = Self.keyName(for: event)
             self.hotkey = ClipboardHotkey(keyCode: Int(event.keyCode), keyChar: char,
                                           modifiers: mods.rawValue, doubleTap: self.hotkey.doubleTap)
             // Persistence is handled by AppSettings.didSet
-            self.isRecording = false
+            self.stopMonitor()
             return nil
         }
+    }
+
+    /// Function keys F1–F20 — the only keys allowed as a modifier-less single trigger.
+    private static let functionKeyCodes: Set<Int> =
+        [122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111, 105, 107, 113, 106, 64, 79, 80, 90]
+
+    private static func isFunctionKey(_ keyCode: Int) -> Bool {
+        functionKeyCodes.contains(keyCode)
     }
 
     private func stopMonitor() {
