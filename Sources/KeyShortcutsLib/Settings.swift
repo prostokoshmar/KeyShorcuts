@@ -205,6 +205,17 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(cuteMode, forKey: "cuteMode") }
     }
 
+    /// Backed by the system login-item service, not UserDefaults. If the OS
+    /// rejects the change we snap the published value back to the real state.
+    @Published var launchAtLogin: Bool {
+        didSet {
+            guard launchAtLogin != oldValue else { return }
+            if !LoginItem.setEnabled(launchAtLogin) {
+                launchAtLogin = LoginItem.isEnabled
+            }
+        }
+    }
+
     // MARK: - Convert
 
     @Published var watchedFolders: [String] {
@@ -277,6 +288,8 @@ class AppSettings: ObservableObject {
         liquidGlassIntensity = LiquidGlassIntensity(rawValue: igRaw) ?? .balanced
 
         cuteMode = UserDefaults.standard.object(forKey: "cuteMode") as? Bool ?? false
+
+        launchAtLogin = LoginItem.isEnabled
 
         let savedFolders = UserDefaults.standard.stringArray(forKey: "watchedFolders")
         let initialFolders = savedFolders ?? [NSHomeDirectory()]

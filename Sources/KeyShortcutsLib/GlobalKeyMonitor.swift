@@ -1,14 +1,6 @@
 import Cocoa
 
-func ksLog(_ msg: String) {
-    let line = msg + "\n"
-    if let data = line.data(using: .utf8) {
-        let url = URL(fileURLWithPath: "/tmp/ks.log")
-        if let fh = try? FileHandle(forWritingTo: url) {
-            fh.seekToEndOfFile(); fh.write(data); fh.closeFile()
-        } else { try? data.write(to: url) }
-    }
-}
+private let kEscapeKeyCode = 53
 
 class GlobalKeyMonitor {
     private var eventTap: CFMachPort?
@@ -16,6 +8,7 @@ class GlobalKeyMonitor {
     private var isOverlayVisible = false
     private var otherKeyPressed = false
     private var lastKeyPressTime: Date?
+    private var lastHotkeyTapTimes: [Int: Date] = [:]  // index in `hotkeys` → last tap, for double-tap
     private let callback: (Bool) -> Void
     private let clipboardCallback: (() -> Void)?
     private let escapeCallback: (() -> Void)?
@@ -129,41 +122,36 @@ class GlobalKeyMonitor {
             return false
 
         case .keyDown:
-            let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+            let keyCode = Int(event.getIntegerValueField(.keyboardEventKeycode))
             let flags = event.flags
-            let relevantMask: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
-            let flagBits = flags.intersection(relevantMask).rawValue
 
-            let hotkey = AppSettings.shared.clipboardHotkey
-            let hotkeyBits = hotkey.cgModifiers.intersection(relevantMask).rawValue
-            ksLog("keyDown keyCode=\(keyCode) flags=\(flagBits) | stored keyCode=\(hotkey.keyCode) flags=\(hotkeyBits) char='\(hotkey.keyChar)'")
-            if keyCode == hotkey.keyCode &&
-               !hotkey.keyChar.isEmpty &&
-               flags.intersection(relevantMask) == hotkey.cgModifiers.intersection(relevantMask) {
+            // Configurable hotkeys, in priority order. The first match is consumed
+            // (suppressed) so the underlying app never sees it.
+            let hotkeys: [(ClipboardHotkey, (() -> Void)?)] = [
+                (settings.clipboardHotkey,   clipboardCallback),
+                (settings.keepAwakeHotkey,   keepAwakeCallback),
+                (settings.appSwitcherHotkey, appSwitcherCallback),
+            ]
+            for (index, (hotkey, action)) in hotkeys.enumerated()
+            where hotkey.matches(keyCode: keyCode, flags: flags) {
                 cancelHoldTimer()
-                clipboardCallback?()
+                if hotkey.doubleTap {
+                    // Fire only on the second press within the double-press window.
+                    let now = Date()
+                    if let last = lastHotkeyTapTimes[index],
+                       now.timeIntervalSince(last) < settings.doublePressInterval {
+                        lastHotkeyTapTimes[index] = nil
+                        action?()
+                    } else {
+                        lastHotkeyTapTimes[index] = now
+                    }
+                } else {
+                    action?()
+                }
                 return true
             }
 
-            let kaHotkey = AppSettings.shared.keepAwakeHotkey
-            if !kaHotkey.keyChar.isEmpty &&
-               keyCode == kaHotkey.keyCode &&
-               flags.intersection(relevantMask) == kaHotkey.cgModifiers.intersection(relevantMask) {
-                cancelHoldTimer()
-                keepAwakeCallback?()
-                return true
-            }
-
-            let asHotkey = AppSettings.shared.appSwitcherHotkey
-            if !asHotkey.keyChar.isEmpty &&
-               keyCode == asHotkey.keyCode &&
-               flags.intersection(relevantMask) == asHotkey.cgModifiers.intersection(relevantMask) {
-                cancelHoldTimer()
-                appSwitcherCallback?()
-                return true
-            }
-
-            if keyCode == 53 {
+            if keyCode == kEscapeKeyCode {
                 escapeCallback?()
             }
 

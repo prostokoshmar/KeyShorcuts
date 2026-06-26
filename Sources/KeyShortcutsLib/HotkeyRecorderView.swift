@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Inline shortcut recorder. Pass a @Binding to any ClipboardHotkey stored in AppSettings.
-/// Requires at least one modifier; Esc cancels without saving.
+/// Accepts either a modifier chord (e.g. ⌘⇧V) or a single key (e.g. F5). Esc cancels.
 struct HotkeyRecorderView: View {
     @Binding var hotkey: ClipboardHotkey
     @State private var isRecording = false
@@ -16,7 +16,7 @@ struct HotkeyRecorderView: View {
                         .stroke(isRecording ? Color.accentColor.opacity(0.6) : Color.primary.opacity(0.18),
                                 lineWidth: 1)
                 )
-            Text(isRecording ? "Type shortcut…" : hotkey.displayString)
+            Text(isRecording ? "Press a key…" : hotkey.displayString)
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(isRecording ? Color.accentColor : .primary)
                 .padding(.horizontal, 12)
@@ -39,11 +39,10 @@ struct HotkeyRecorderView: View {
             }
 
             let mods = event.modifierFlags.toCGEventFlags
-            let standard: CGEventFlags = [.maskCommand, .maskShift, .maskAlternate, .maskControl]
-            guard !mods.intersection(standard).isEmpty else { return nil }
-
+            // A single key (no modifier) is allowed — e.g. a function key as a one-press trigger.
             let char = Self.keyName(for: event)
-            self.hotkey = ClipboardHotkey(keyCode: Int(event.keyCode), keyChar: char, modifiers: mods.rawValue)
+            self.hotkey = ClipboardHotkey(keyCode: Int(event.keyCode), keyChar: char,
+                                          modifiers: mods.rawValue, doubleTap: self.hotkey.doubleTap)
             // Persistence is handled by AppSettings.didSet
             self.isRecording = false
             return nil
@@ -70,7 +69,49 @@ struct HotkeyRecorderView: View {
         case 121: return "PgDn"
         case 115: return "Home"
         case 119: return "End"
-        default:  return event.charactersIgnoringModifiers?.uppercased() ?? "\(event.keyCode)"
+        case 122: return "F1"
+        case 120: return "F2"
+        case 99:  return "F3"
+        case 118: return "F4"
+        case 96:  return "F5"
+        case 97:  return "F6"
+        case 98:  return "F7"
+        case 100: return "F8"
+        case 101: return "F9"
+        case 109: return "F10"
+        case 103: return "F11"
+        case 111: return "F12"
+        case 105: return "F13"
+        case 107: return "F14"
+        case 113: return "F15"
+        case 106: return "F16"
+        case 64:  return "F17"
+        case 79:  return "F18"
+        case 80:  return "F19"
+        case 90:  return "F20"
+        default:  return event.charactersIgnoringModifiers?.uppercased() ?? "key \(event.keyCode)"
+        }
+    }
+}
+
+/// A labelled hotkey row: the recorder plus a "double-tap" toggle.
+/// Used by every configurable feature shortcut so they all share the same options.
+struct HotkeyField: View {
+    let label: String
+    @Binding var hotkey: ClipboardHotkey
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(label)
+                Spacer()
+                HotkeyRecorderView(hotkey: $hotkey)
+            }
+            Toggle("Double-tap to trigger", isOn: $hotkey.doubleTap)
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+                .foregroundStyle(.secondary)
+                .font(.caption)
         }
     }
 }

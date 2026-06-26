@@ -34,6 +34,15 @@ private struct GeneralTab: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                // Startup
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Startup").font(.headline)
+                    Toggle("Launch at login", isOn: $settings.launchAtLogin)
+                        .toggleStyle(.switch)
+                }
+
+                Divider()
+
                 // Trigger key
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Trigger Key").font(.headline)
@@ -84,11 +93,7 @@ private struct GeneralTab: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Keep Awake").font(.headline)
-                    HStack {
-                        Text("Shortcut")
-                        Spacer()
-                        HotkeyRecorderView(hotkey: $settings.keepAwakeHotkey)
-                    }
+                    HotkeyField(label: "Shortcut", hotkey: $settings.keepAwakeHotkey)
                     Text("Shortcut always activates indefinite mode. Use the menu icon to set a timed duration.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -98,11 +103,7 @@ private struct GeneralTab: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("App Switcher").font(.headline)
-                    HStack {
-                        Text("Shortcut")
-                        Spacer()
-                        HotkeyRecorderView(hotkey: $settings.appSwitcherHotkey)
-                    }
+                    HotkeyField(label: "Shortcut", hotkey: $settings.appSwitcherHotkey)
                     Picker("Show", selection: $settings.appSwitcherShowAll) {
                         Text("All running apps").tag(true)
                         Text("Apps with open windows").tag(false)
@@ -130,11 +131,7 @@ private struct ClipboardTab: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Clipboard History").font(.headline)
 
-                    HStack {
-                        Text("Shortcut")
-                        Spacer()
-                        HotkeyRecorderView(hotkey: $settings.clipboardHotkey)
-                    }
+                    HotkeyField(label: "Shortcut", hotkey: $settings.clipboardHotkey)
 
                     HStack {
                         Text("Maximum items")
