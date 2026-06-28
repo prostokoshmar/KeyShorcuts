@@ -35,7 +35,10 @@ class OverlayWindowController {
     }
 
     func show(shortcuts: [String: [ShortcutItem]], appName: String, appIcon: NSImage?) {
-        if let screen = NSScreen.main {
+        // Center on the screen under the mouse so the overlay shows on the display
+        // you're actually using (consistent with the app switcher), not always main.
+        let mouse = NSEvent.mouseLocation
+        if let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main {
             let sf = screen.frame
             let wf = panel?.frame ?? .zero
             panel?.setFrameOrigin(NSPoint(x: sf.midX - wf.width / 2, y: sf.midY - wf.height / 2))

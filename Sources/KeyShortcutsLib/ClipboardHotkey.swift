@@ -44,6 +44,16 @@ struct ClipboardHotkey: Equatable {
         return code == keyCode && flags.intersection(mask) == cgModifiers.intersection(mask)
     }
 
+    /// True when both hotkeys fire on the same physical key + modifier chord. Ignores
+    /// `doubleTap`/`keyChar` because the key monitor still suppresses the event either way,
+    /// so two features bound to the same key still collide. Unset hotkeys never conflict.
+    func conflicts(with other: ClipboardHotkey) -> Bool {
+        guard !keyChar.isEmpty, !other.keyChar.isEmpty else { return false }
+        let mask = ClipboardHotkey.relevantModifierMask
+        return keyCode == other.keyCode &&
+            cgModifiers.intersection(mask) == other.cgModifiers.intersection(mask)
+    }
+
     func save(prefix: String) {
         UserDefaults.standard.set(keyCode,    forKey: "\(prefix)Code")
         UserDefaults.standard.set(keyChar,    forKey: "\(prefix)Char")

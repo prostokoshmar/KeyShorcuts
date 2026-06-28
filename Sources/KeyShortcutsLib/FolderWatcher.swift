@@ -56,8 +56,14 @@ final class FolderWatcher {
             FSEventStreamRelease(stream)
             self.stream = nil
         }
-        debounceWork?.cancel()
-        pendingURLs.removeAll()
+        // pendingURLs / debounceWork are otherwise only touched on `queue` (the FSEvents
+        // callback runs there). Hop onto it so cancelling from the main thread can't race
+        // an in-flight callback.
+        queue.sync {
+            debounceWork?.cancel()
+            debounceWork = nil
+            pendingURLs.removeAll()
+        }
     }
 
     private func received(urls: [URL]) {
