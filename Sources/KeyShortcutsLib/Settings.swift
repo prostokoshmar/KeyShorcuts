@@ -305,6 +305,22 @@ class AppSettings: ObservableObject {
     }
 }
 
+extension AppSettings {
+    /// Names of the *other* feature hotkeys that collide with `hotkey`. Used by the
+    /// preferences UI to warn that only the first match (in key-monitor priority order)
+    /// will actually fire.
+    func conflictingFeatures(for hotkey: ClipboardHotkey, excluding feature: String) -> [String] {
+        let all: [(name: String, key: ClipboardHotkey)] = [
+            ("Clipboard History", clipboardHotkey),
+            ("Keep Awake",        keepAwakeHotkey),
+            ("App Switcher",      appSwitcherHotkey),
+        ]
+        return all
+            .filter { $0.name != feature && hotkey.conflicts(with: $0.key) }
+            .map(\.name)
+    }
+}
+
 extension Notification.Name {
     static let clipboardLimitChanged           = Notification.Name("clipboardLimitChanged")
     static let clipboardPollingIntervalChanged  = Notification.Name("clipboardPollingIntervalChanged")

@@ -110,7 +110,16 @@ struct HotkeyRecorderView: View {
 /// Used by every configurable feature shortcut so they all share the same options.
 struct HotkeyField: View {
     let label: String
+    /// This feature's name, used to detect collisions with other feature hotkeys.
+    /// Pass "" to skip conflict checking.
+    var feature: String = ""
     @Binding var hotkey: ClipboardHotkey
+    @ObservedObject private var settings = AppSettings.shared
+
+    private var conflicts: [String] {
+        guard !feature.isEmpty else { return [] }
+        return settings.conflictingFeatures(for: hotkey, excluding: feature)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -124,6 +133,14 @@ struct HotkeyField: View {
                 .controlSize(.small)
                 .foregroundStyle(.secondary)
                 .font(.caption)
+
+            if !conflicts.isEmpty {
+                Label("Same as \(conflicts.joined(separator: ", ")) — only one will respond.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

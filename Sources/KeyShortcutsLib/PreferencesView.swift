@@ -93,7 +93,7 @@ private struct GeneralTab: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Keep Awake").font(.headline)
-                    HotkeyField(label: "Shortcut", hotkey: $settings.keepAwakeHotkey)
+                    HotkeyField(label: "Shortcut", feature: "Keep Awake", hotkey: $settings.keepAwakeHotkey)
                     Text("Shortcut always activates indefinite mode. Use the menu icon to set a timed duration.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -103,7 +103,7 @@ private struct GeneralTab: View {
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("App Switcher").font(.headline)
-                    HotkeyField(label: "Shortcut", hotkey: $settings.appSwitcherHotkey)
+                    HotkeyField(label: "Shortcut", feature: "App Switcher", hotkey: $settings.appSwitcherHotkey)
                     Picker("Show", selection: $settings.appSwitcherShowAll) {
                         Text("All running apps").tag(true)
                         Text("Apps with open windows").tag(false)
@@ -131,7 +131,7 @@ private struct ClipboardTab: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Clipboard History").font(.headline)
 
-                    HotkeyField(label: "Shortcut", hotkey: $settings.clipboardHotkey)
+                    HotkeyField(label: "Shortcut", feature: "Clipboard History", hotkey: $settings.clipboardHotkey)
 
                     HStack {
                         Text("Maximum items")

@@ -141,8 +141,14 @@ final class ConversionManager: ObservableObject {
             let outputURL = buildOutputURL(for: item)
             let originalURL = buildOriginalPreservationURL(for: item)
 
+            // Temp file we convert into, then atomically move into place. Declared out
+            // here (not inside the do) so the catch block can remove the *actual* temp
+            // on failure instead of a freshly-generated UUID that never existed.
+            let tmp = outputURL.deletingLastPathComponent()
+                .appendingPathComponent(".\(UUID().uuidString).ksconv")
+
             // Register URLs we're about to write
-            self.markWritten([outputURL, originalURL])
+            self.markWritten([outputURL, originalURL, tmp])
 
             do {
                 let mode = AppSettings.shared.conversionOutputMode
@@ -156,10 +162,6 @@ final class ConversionManager: ObservableObject {
                 if mode == .keepBoth || mode == .appendSuffix {
                     try origData.write(to: originalURL, options: .atomic)
                 }
-
-                let tmp = outputURL.deletingLastPathComponent()
-                    .appendingPathComponent(".\(UUID().uuidString).ksconv")
-                self.markWritten([tmp])
 
                 try engine.convert(item: item, to: tmp, progress: { p in
                     DispatchQueue.main.async {
@@ -187,10 +189,8 @@ final class ConversionManager: ObservableObject {
                 }
 
             } catch {
-                // Clean up temp if still around
-                try? FileManager.default.removeItem(at:
-                    outputURL.deletingLastPathComponent()
-                        .appendingPathComponent(".\(UUID().uuidString).ksconv"))
+                // Clean up the temp file we actually created, if it's still around
+                try? FileManager.default.removeItem(at: tmp)
                 DispatchQueue.main.async {
                     self.updateState(id: item.id, state: .failed(error.localizedDescription))
                     NotificationCenter.default.post(name: .conversionQueueChanged, object: nil)
@@ -223,11 +223,8 @@ final class ConversionManager: ObservableObject {
         let dir  = item.sourceURL.deletingLastPathComponent()
         let stem = item.sourceURL.deletingPathExtension().lastPathComponent
         let ext  = item.detectedSourceFormat.fileExtension
-        // If preserving as the same name as the source, use source path (will be preserved before overwrite)
-        let candidate = dir.appendingPathComponent("\(stem).\(ext)")
-        if candidate.standardizedFileURL == item.sourceURL.standardizedFileURL {
-            return uniqueURL(dir: dir, name: "\(stem).\(ext)", suffix: " (original)")
-        }
+        // Preserve the original bytes under their true extension, never clobbering an
+        // existing file — uniqueURL appends " (original)" / a number on collision.
         return uniqueURL(dir: dir, name: "\(stem).\(ext)", suffix: " (original)")
     }
 
