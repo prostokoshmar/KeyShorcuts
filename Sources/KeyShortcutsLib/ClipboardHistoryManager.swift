@@ -322,6 +322,7 @@ class ClipboardHistoryManager: ObservableObject {
         items.insert(item, at: 0)
         enforceLimit()
         persistTextItems()
+        NotificationCenter.default.post(name: .clipboardItemCaptured, object: nil)
     }
 
     private func enforceLimit() {

@@ -33,8 +33,13 @@ A macOS menu bar utility with six productivity features: keyboard shortcut viewe
 - Open from the menu bar, or set a hotkey in Preferences; tray contents persist across launches
 
 ### Accent Themes
-- Pink 🌸, Mint 🌿, Lavender 💜, or Amber 🔥 — tints every overlay, badge, hover state, and the menu bar icon
+- Cute 🌸, Mint 🌿, Lavender 💜, or Amber 🔥 — tints every overlay, badge, hover state, and the menu bar icon
 - Pick **None** for the neutral system look (Preferences → Appearance)
+
+### Menu Bar Icons
+- Pick the status-bar icon: keyboard, **cat**, ⌘, sparkles, bolt, heart, star, or paw (Preferences → Appearance)
+- The cat sleeps with a drifting ᶻᶻᶻ while Keep Awake is off — and wakes up when Keep Awake is on
+- The icon gives a little bounce on events (Keep Awake toggles, new conversions, clipboard captures); toggleable
 
 ### Convert (Rename to Convert)
 Watches folders you choose. When a file's extension doesn't match its actual content (e.g. a HEIC file renamed to `.jpg`), it proposes converting it — no separate converter app needed.

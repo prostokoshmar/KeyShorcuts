@@ -53,7 +53,7 @@ enum AccentTheme: String, CaseIterable {
     var displayName: String {
         switch self {
         case .none:     return "None"
-        case .pink:     return "Pink 🌸"
+        case .pink:     return "Cute 🌸"
         case .mint:     return "Mint 🌿"
         case .lavender: return "Lavender 💜"
         case .amber:    return "Amber 🔥"
@@ -84,6 +84,54 @@ enum AccentTheme: String, CaseIterable {
 
     var nsAccent: NSColor? {
         accentRGB.map { NSColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1.0) }
+    }
+}
+
+enum MenuBarIcon: String, CaseIterable {
+    case keyboard = "keyboard"
+    case cat      = "cat"
+    case command  = "command"
+    case sparkles = "sparkles"
+    case bolt     = "bolt"
+    case heart    = "heart"
+    case star     = "star"
+    case pawprint = "pawprint"
+
+    var symbol: String {
+        switch self {
+        case .keyboard: return "keyboard"
+        case .cat:      return "cat.fill"
+        case .command:  return "command"
+        case .sparkles: return "sparkles"
+        case .bolt:     return "bolt.fill"
+        case .heart:    return "heart.fill"
+        case .star:     return "star.fill"
+        case .pawprint: return "pawprint.fill"
+        }
+    }
+
+    var displayName: String {
+        switch self {
+        case .keyboard: return "Keyboard"
+        case .cat:      return "Cat"
+        case .command:  return "Command"
+        case .sparkles: return "Sparkles"
+        case .bolt:     return "Bolt"
+        case .heart:    return "Heart"
+        case .star:     return "Star"
+        case .pawprint: return "Paw"
+        }
+    }
+
+    /// Icon while keep-awake is active. The keyboard has a dedicated badge
+    /// variant; the cat is simply awake (its idle zzz disappears); every
+    /// other base icon switches to an eye.
+    var keepAwakeSymbol: String {
+        switch self {
+        case .keyboard: return "keyboard.badge.eye"
+        case .cat:      return "cat.fill"
+        default:        return "eye.fill"
+        }
     }
 }
 
@@ -261,6 +309,15 @@ class AppSettings: ObservableObject {
     /// Legacy name — true whenever any accent theme is active.
     var cuteMode: Bool { accentTheme != .none }
 
+    @Published var menuBarIcon: MenuBarIcon {
+        didSet { UserDefaults.standard.set(menuBarIcon.rawValue, forKey: "menuBarIcon") }
+    }
+
+    /// Pulse the menu-bar icon on events (keep-awake toggle, new conversion, clipboard capture).
+    @Published var menuBarIconAnimated: Bool {
+        didSet { UserDefaults.standard.set(menuBarIconAnimated, forKey: "menuBarIconAnimated") }
+    }
+
     /// Backed by the system login-item service, not UserDefaults. If the OS
     /// rejects the change we snap the published value back to the real state.
     @Published var launchAtLogin: Bool {
@@ -345,6 +402,10 @@ class AppSettings: ObservableObject {
         let igRaw = UserDefaults.standard.string(forKey: "liquidGlassIntensity") ?? ""
         liquidGlassIntensity = LiquidGlassIntensity(rawValue: igRaw) ?? .balanced
 
+        let iconRaw = UserDefaults.standard.string(forKey: "menuBarIcon") ?? ""
+        menuBarIcon = MenuBarIcon(rawValue: iconRaw) ?? .keyboard
+        menuBarIconAnimated = UserDefaults.standard.object(forKey: "menuBarIconAnimated") as? Bool ?? true
+
         // Migrate the old cuteMode bool to the theme enum on first run
         if let raw = UserDefaults.standard.string(forKey: "accentTheme"),
            let theme = AccentTheme(rawValue: raw) {
@@ -398,4 +459,5 @@ extension Notification.Name {
     static let watchedFoldersChanged             = Notification.Name("watchedFoldersChanged")
     static let conversionQueueChanged            = Notification.Name("conversionQueueChanged")
     static let showFileTray                      = Notification.Name("showFileTray")
+    static let clipboardItemCaptured             = Notification.Name("clipboardItemCaptured")
 }

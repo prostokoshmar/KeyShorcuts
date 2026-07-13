@@ -1,5 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
+import QuickLookThumbnailing
 
 struct FileTrayView: View {
     @ObservedObject private var tray = FileTrayManager.shared
@@ -146,13 +147,30 @@ struct FileTrayView: View {
 private struct FileTrayRowView: View {
     let url: URL
     @State private var isHovered = false
+    @State private var thumbnail: NSImage?
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
-                .resizable()
-                .frame(width: 30, height: 30)
+            Group {
+                if let thumbnail {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 34, height: 34)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .stroke(Color.primary.opacity(0.15), lineWidth: 0.5)
+                        )
+                } else {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: url.path))
+                        .resizable()
+                        .frame(width: 30, height: 30)
+                }
+            }
+            .frame(width: 34, height: 34)
+            .onAppear { loadThumbnail() }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(url.lastPathComponent)
@@ -207,6 +225,28 @@ private struct FileTrayRowView: View {
         .onTapGesture(count: 2) { NSWorkspace.shared.open(url) }
     }
 
+    /// QuickLook content thumbnail (images, videos, PDFs, …); rows keep the
+    /// generic Finder icon until — and unless — one arrives.
+    private func loadThumbnail() {
+        guard thumbnail == nil else { return }
+        if let cached = ThumbnailCache.shared.image(for: url) {
+            thumbnail = cached
+            return
+        }
+        let request = QLThumbnailGenerator.Request(
+            fileAt: url,
+            size: CGSize(width: 34, height: 34),
+            scale: NSScreen.main?.backingScaleFactor ?? 2,
+            representationTypes: .thumbnail
+        )
+        QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { rep, _ in
+            guard let rep else { return }
+            let img = rep.nsImage
+            ThumbnailCache.shared.store(img, for: url)
+            DispatchQueue.main.async { thumbnail = img }
+        }
+    }
+
     private var fileDetail: String {
         let dir = url.deletingLastPathComponent().path
             .replacingOccurrences(of: NSHomeDirectory(), with: "~")
@@ -215,4 +255,24 @@ private struct FileTrayRowView: View {
         }
         return dir
     }
+}
+
+// MARK: - Thumbnail cache
+
+/// Small in-memory cache so rows don't regenerate thumbnails on every hover-driven
+/// re-render. Keyed by path + modification date, so edited files refresh.
+final class ThumbnailCache {
+    static let shared = ThumbnailCache()
+    private let cache = NSCache<NSString, NSImage>()
+
+    private init() { cache.countLimit = 200 }
+
+    private func key(for url: URL) -> NSString {
+        let mtime = (try? FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date)
+            .map { String($0.timeIntervalSince1970) } ?? ""
+        return "\(url.path)|\(mtime)" as NSString
+    }
+
+    func image(for url: URL) -> NSImage? { cache.object(forKey: key(for: url)) }
+    func store(_ image: NSImage, for url: URL) { cache.setObject(image, forKey: key(for: url)) }
 }

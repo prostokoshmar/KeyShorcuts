@@ -106,10 +106,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.applyStatusBarTint() }
             .store(in: &cancellables)
+        AppSettings.shared.$menuBarIcon
+            .receive(on: DispatchQueue.main)
+            .dropFirst()
+            .sink { [weak self] _ in
+                self?.refreshKeepAwakeUI()
+                self?.pulseStatusIcon(scale: 1.25)
+            }
+            .store(in: &cancellables)
+        NotificationCenter.default.addObserver(
+            forName: .clipboardItemCaptured, object: nil, queue: .main
+        ) { [weak self] _ in self?.pulseStatusIcon(scale: 1.12) }
+        AppSettings.shared.$menuBarIconAnimated
+            .receive(on: DispatchQueue.main)
+            .dropFirst()
+            .sink { [weak self] _ in self?.updateCatIdleAnimation() }
+            .store(in: &cancellables)
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) {
             AutoUpdater.shared.checkSilently()
         }
+
+        // Sync the icon (and start the cat's zzz, if chosen) on launch
+        refreshKeepAwakeUI()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -127,7 +146,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func setupStatusBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Key Shortcuts")
+            button.image = NSImage(systemSymbolName: AppSettings.shared.menuBarIcon.symbol,
+                                   accessibilityDescription: "Key Shortcuts")
             button.image?.isTemplate = true
             button.imagePosition = .imageLeading
         }
@@ -234,8 +254,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ConversionManager.shared.dismissAll()
     }
 
+    private var lastPendingCount = 0
+
     private func refreshConversionUI() {
         let pending = ConversionManager.shared.pendingCount
+        if pending > lastPendingCount { pulseStatusIcon(scale: 1.25) }
+        lastPendingCount = pending
 
         // Badge item text
         if pending > 0 {
@@ -255,16 +279,54 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // If keep-awake is active it already controls the icon; don't override it here.
     }
 
-    // Status icon when keep-awake is off: pending-conversion badge or plain keyboard.
+    // Status icon when keep-awake is off: pending-conversion badge or the chosen base icon.
     private func applyIdleStatusIcon() {
         let pending = ConversionManager.shared.pendingCount
         if pending > 0 {
             setStatusBarImage(symbolName: "arrow.triangle.2.circlepath", desc: "Key Shortcuts – \(pending) conversion(s) pending")
             statusItem.button?.title = " \(pending)"
         } else {
-            setStatusBarImage(symbolName: "keyboard", desc: "Key Shortcuts")
+            setStatusBarImage(symbolName: AppSettings.shared.menuBarIcon.symbol, desc: "Key Shortcuts")
             statusItem.button?.title = ""
         }
+        updateCatIdleAnimation()
+    }
+
+    // MARK: - Sleeping cat 🐱
+
+    private var catZzzTimer: Timer?
+    private var catZzzPhase = 0
+
+    /// With the Cat icon, an idle cat (keep-awake off, nothing pending) sleeps —
+    /// a little ᶻᶻᶻ drifts next to it. Keep Awake wakes the cat and the zzz stops.
+    private func updateCatIdleAnimation() {
+        let settings = AppSettings.shared
+        let sleeping = settings.menuBarIcon == .cat
+            && !keepAwakeEnabled
+            && ConversionManager.shared.pendingCount == 0
+
+        guard sleeping else { stopCatZzz(); return }
+
+        if settings.menuBarIconAnimated {
+            statusItem.button?.title = " " + String(repeating: "ᶻ", count: catZzzPhase)
+            if catZzzTimer == nil {
+                let t = Timer(timeInterval: 0.7, repeats: true) { [weak self] _ in
+                    guard let self else { return }
+                    self.catZzzPhase = (self.catZzzPhase + 1) % 4
+                    self.statusItem.button?.title = " " + String(repeating: "ᶻ", count: self.catZzzPhase)
+                }
+                RunLoop.main.add(t, forMode: .common)
+                catZzzTimer = t
+            }
+        } else {
+            stopCatZzz()
+            statusItem.button?.title = " ᶻᶻᶻ"
+        }
+    }
+
+    private func stopCatZzz() {
+        catZzzTimer?.invalidate()
+        catZzzTimer = nil
     }
 
     // MARK: - Keep Awake actions
@@ -319,6 +381,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - Keep Awake engine
 
+    /// Brief scale bounce on the status-bar icon. No-op when disabled in Preferences.
+    private func pulseStatusIcon(scale: CGFloat) {
+        guard AppSettings.shared.menuBarIconAnimated, let button = statusItem.button else { return }
+        button.wantsLayer = true
+        guard let layer = button.layer else { return }
+        // Re-anchor to the center once so the bounce doesn't drift the icon.
+        if layer.anchorPoint != CGPoint(x: 0.5, y: 0.5) {
+            let frame = layer.frame
+            layer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            layer.frame = frame
+        }
+        let anim = CAKeyframeAnimation(keyPath: "transform.scale")
+        anim.values = [1.0, scale, 0.94, 1.0]
+        anim.keyTimes = [0, 0.35, 0.7, 1]
+        anim.duration = 0.32
+        anim.timingFunctions = [CAMediaTimingFunction(name: .easeOut),
+                                CAMediaTimingFunction(name: .easeInEaseOut),
+                                CAMediaTimingFunction(name: .easeOut)]
+        layer.add(anim, forKey: "pulse")
+    }
+
     private func startKeepAwake(minutes: Double) {
         stopKeepAwake()
 
@@ -332,6 +415,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         keepAwakeEnabled = true
         keepAwakeCurrentMinutes = minutes
+        pulseStatusIcon(scale: 1.25)
 
         if minutes > 0 {
             let seconds = minutes * 60
@@ -362,6 +446,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if keepAwakeEnabled {
             IOPMAssertionRelease(keepAwakeAssertionID)
             keepAwakeAssertionID = 0
+            pulseStatusIcon(scale: 1.18)
         }
         keepAwakeEnabled = false
         keepAwakeCurrentMinutes = -1
@@ -375,7 +460,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Status bar icon + inline countdown text
         if keepAwakeEnabled {
-            setStatusBarImage(symbolName: "keyboard.badge.eye", desc: "Key Shortcuts – Keep Awake")
+            setStatusBarImage(symbolName: AppSettings.shared.menuBarIcon.keepAwakeSymbol,
+                              desc: "Key Shortcuts – Keep Awake")
             if let rem = remaining, rem > 0 {
                 statusItem.button?.title = " \(compact(rem))"
             } else {
@@ -411,13 +497,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for entry in keepAwakeSubmenuItems {
             entry.item.state = (keepAwakeEnabled && entry.minutes == keepAwakeCurrentMinutes) ? .on : .off
         }
+
+        // Keep the cat's zzz in sync — must stop when keep-awake owns the title.
+        if keepAwakeEnabled { stopCatZzz() }
     }
 
     private func setStatusBarImage(symbolName: String, desc: String) {
         guard let button = statusItem.button else { return }
+        // Some symbols (e.g. cat.fill) need newer macOS — fall back to the keyboard.
+        let name = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) != nil
+            ? symbolName : "keyboard"
         if let tint = AppSettings.shared.accentTheme.nsAccent {
             let config = NSImage.SymbolConfiguration(paletteColors: [tint])
-            if let img = NSImage(systemSymbolName: symbolName, accessibilityDescription: desc)?
+            if let img = NSImage(systemSymbolName: name, accessibilityDescription: desc)?
                 .withSymbolConfiguration(config) {
                 button.image = img
                 button.image?.isTemplate = false
@@ -425,7 +517,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 return
             }
         }
-        button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: desc)
+        button.image = NSImage(systemSymbolName: name, accessibilityDescription: desc)
         button.image?.isTemplate = true
         button.contentTintColor = nil
     }

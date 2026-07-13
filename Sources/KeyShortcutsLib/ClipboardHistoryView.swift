@@ -259,13 +259,16 @@ struct ClipboardItemRowView: View {
             }
 
         case .image(let img):
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 Image(nsImage: img)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: 36, height: 36)
-                    .cornerRadius(5)
-                    .clipped()
+                    .frame(width: 64, height: 48)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(Color.primary.opacity(0.15), lineWidth: 0.5)
+                    )
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Image")
                         .font(.system(size: 12, weight: .medium))

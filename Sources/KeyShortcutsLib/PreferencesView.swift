@@ -263,6 +263,26 @@ private struct AppearanceTab: View {
 
                 Divider()
 
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Menu Bar").font(.headline)
+                    Picker("", selection: $settings.menuBarIcon) {
+                        ForEach(MenuBarIcon.allCases, id: \.self) { icon in
+                            Image(systemName: icon.symbol)
+                                .help(icon.displayName)
+                                .tag(icon)
+                        }
+                    }
+                    .pickerStyle(.segmented).labelsHidden()
+
+                    Toggle("Animate menu bar icon", isOn: $settings.menuBarIconAnimated)
+                        .toggleStyle(.switch)
+                    Text("The icon gives a little bounce on events — Keep Awake toggles, new conversions, clipboard captures. The cat sleeps with a drifting ᶻᶻᶻ while Keep Awake is off, and wakes up when it's on.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
                 VStack(alignment: .leading, spacing: 8) {
                     Text("App Switcher Layout").font(.headline)
                     Picker("", selection: $settings.appSwitcherLayout) {
