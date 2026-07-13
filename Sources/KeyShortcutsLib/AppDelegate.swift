@@ -292,41 +292,55 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateCatIdleAnimation()
     }
 
-    // MARK: - Sleeping cat 🐱
+    // MARK: - Cat 🐱
 
-    private var catZzzTimer: Timer?
-    private var catZzzPhase = 0
+    private var catFrameTimer: Timer?
+    private var catAnimStart: TimeInterval = 0
 
-    /// With the Cat icon, an idle cat (keep-awake off, nothing pending) sleeps —
-    /// a little ᶻᶻᶻ drifts next to it. Keep Awake wakes the cat and the zzz stops.
+    /// With the Cat icon the status image is a live drawing (~12 fps):
+    /// keep-awake off → curled-up cat with floating z's; keep-awake on →
+    /// the cat strolls back and forth. Pending conversions hand the icon
+    /// back to the badge, and disabling icon animations freezes one frame.
     private func updateCatIdleAnimation() {
         let settings = AppSettings.shared
-        let sleeping = settings.menuBarIcon == .cat
-            && !keepAwakeEnabled
+        let catActive = settings.menuBarIcon == .cat
             && ConversionManager.shared.pendingCount == 0
 
-        guard sleeping else { stopCatZzz(); return }
+        guard catActive else { stopCatZzz(); return }
 
         if settings.menuBarIconAnimated {
-            statusItem.button?.title = " " + String(repeating: "ᶻ", count: catZzzPhase)
-            if catZzzTimer == nil {
-                let t = Timer(timeInterval: 0.7, repeats: true) { [weak self] _ in
-                    guard let self else { return }
-                    self.catZzzPhase = (self.catZzzPhase + 1) % 4
-                    self.statusItem.button?.title = " " + String(repeating: "ᶻ", count: self.catZzzPhase)
+            if catFrameTimer == nil {
+                catAnimStart = CACurrentMediaTime()
+                let t = Timer(timeInterval: 1.0 / CatIcon.fps, repeats: true) { [weak self] _ in
+                    self?.renderCatFrame()
                 }
                 RunLoop.main.add(t, forMode: .common)
-                catZzzTimer = t
+                catFrameTimer = t
             }
+            renderCatFrame()
         } else {
             stopCatZzz()
-            statusItem.button?.title = " ᶻᶻᶻ"
+            let tint = settings.accentTheme.nsAccent
+            setCatImage(keepAwakeEnabled ? CatIcon.walkStatic(tint: tint)
+                                         : CatIcon.sleepStatic(tint: tint))
         }
     }
 
+    private func renderCatFrame() {
+        let t = CACurrentMediaTime() - catAnimStart
+        let tint = AppSettings.shared.accentTheme.nsAccent
+        setCatImage(keepAwakeEnabled ? CatIcon.walkFrame(at: t, tint: tint)
+                                     : CatIcon.sleepFrame(at: t, tint: tint))
+    }
+
+    private func setCatImage(_ image: NSImage) {
+        statusItem.button?.image = image
+        statusItem.button?.contentTintColor = nil
+    }
+
     private func stopCatZzz() {
-        catZzzTimer?.invalidate()
-        catZzzTimer = nil
+        catFrameTimer?.invalidate()
+        catFrameTimer = nil
     }
 
     // MARK: - Keep Awake actions
@@ -498,8 +512,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             entry.item.state = (keepAwakeEnabled && entry.minutes == keepAwakeCurrentMinutes) ? .on : .off
         }
 
-        // Keep the cat's zzz in sync — must stop when keep-awake owns the title.
-        if keepAwakeEnabled { stopCatZzz() }
+        // Keep the cat in sync for both states (asleep / strolling). Runs after
+        // the symbol was set so the cat renderer can take the image back over.
+        if keepAwakeEnabled { updateCatIdleAnimation() }
     }
 
     private func setStatusBarImage(symbolName: String, desc: String) {
