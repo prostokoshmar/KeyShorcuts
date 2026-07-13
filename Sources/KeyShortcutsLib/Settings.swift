@@ -318,6 +318,11 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(menuBarIconAnimated, forKey: "menuBarIconAnimated") }
     }
 
+    /// An ambient cat occasionally strolls along the bottom of app windows.
+    @Published var windowCatEnabled: Bool {
+        didSet { UserDefaults.standard.set(windowCatEnabled, forKey: "windowCatEnabled") }
+    }
+
     /// Backed by the system login-item service, not UserDefaults. If the OS
     /// rejects the change we snap the published value back to the real state.
     @Published var launchAtLogin: Bool {
@@ -405,6 +410,7 @@ class AppSettings: ObservableObject {
         let iconRaw = UserDefaults.standard.string(forKey: "menuBarIcon") ?? ""
         menuBarIcon = MenuBarIcon(rawValue: iconRaw) ?? .keyboard
         menuBarIconAnimated = UserDefaults.standard.object(forKey: "menuBarIconAnimated") as? Bool ?? true
+        windowCatEnabled = UserDefaults.standard.object(forKey: "windowCatEnabled") as? Bool ?? true
 
         // Migrate the old cuteMode bool to the theme enum on first run
         if let raw = UserDefaults.standard.string(forKey: "accentTheme"),
