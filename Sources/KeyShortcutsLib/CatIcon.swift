@@ -206,33 +206,37 @@ enum CatIcon {
         color.set()
         let breath = CGFloat(sin(t * 2 * .pi / 3.4)) * 0.3
 
-        // Body loaf
-        NSBezierPath(ovalIn: NSRect(x: 2.8, y: 1.4, width: 12.6, height: 6.8 + breath)).fill()
+        // Bread-loaf body: flat bottom, round hump that rises toward the front
+        NSBezierPath(ovalIn: NSRect(x: 2.4, y: 1.4, width: 13.4, height: 6.6 + breath)).fill()
 
-        // Doze cycle: sink slowly for 5 s, pop back up in 0.4 s, hold
+        // Chest column rising out of the front of the loaf; the head sits on
+        // it so the whole front reads as one shape
+        NSBezierPath(ovalIn: NSRect(x: 9.0, y: 1.6, width: 6.2, height: 8.8 + breath)).fill()
+
+        // Doze cycle: head sinks slowly for 5 s, pops back up in 0.4 s, holds
         let dph = t.truncatingRemainder(dividingBy: 7.0)
         let nod: CGFloat
         switch dph {
-        case ..<5.0:  nod = -1.7 * CGFloat(dph / 5.0)
-        case ..<5.4:  nod = -1.7 * CGFloat(1 - (dph - 5.0) / 0.4)
+        case ..<5.0:  nod = -1.5 * CGFloat(dph / 5.0)
+        case ..<5.4:  nod = -1.5 * CGFloat(1 - (dph - 5.0) / 0.4)
         default:      nod = 0
         }
 
-        // Head resting on the front of the loaf
-        NSBezierPath(ovalIn: NSRect(x: 9.8, y: 5.6 + nod, width: 6.2, height: 6.2)).fill()
+        // Head upright over the front paws
+        NSBezierPath(ovalIn: NSRect(x: 9.4, y: 7.6 + nod, width: 6.0, height: 6.0)).fill()
         let twitch = earTwitch(at: t, every: 5.7)
-        ear(from: NSPoint(x: 10.3, y: 10.4 + nod), base: NSPoint(x: 12.3, y: 11.2 + nod),
-            tip: NSPoint(x: 10.7, y: 13.4 + nod))
-        ear(from: NSPoint(x: 13.4, y: 11.2 + nod), base: NSPoint(x: 15.4, y: 10.4 + nod),
-            tip: NSPoint(x: 15.6 + twitch, y: 13.2 + nod))
+        ear(from: NSPoint(x: 9.9, y: 12.2 + nod), base: NSPoint(x: 11.9, y: 13.0 + nod),
+            tip: NSPoint(x: 10.3, y: 15.2 + nod))
+        ear(from: NSPoint(x: 13.0, y: 13.0 + nod), base: NSPoint(x: 15.0, y: 12.2 + nod),
+            tip: NSPoint(x: 15.2 + twitch, y: 15.0 + nod))
 
-        // Tail curled along the loaf's base, tip waving gently
-        let wave = CGFloat(sin(t * 1.1)) * 1.1
+        // Tail wrapped around the front of the loaf, tip waving gently
+        let wave = CGFloat(sin(t * 1.1)) * 0.9
         strokePath(width: 1.6) { p in
-            p.move(to: NSPoint(x: 3.4, y: 1.9))
-            p.curve(to: NSPoint(x: 0.9, y: 3.2 + wave),
-                    controlPoint1: NSPoint(x: 1.9, y: 1.4),
-                    controlPoint2: NSPoint(x: 0.8, y: 2.0))
+            p.move(to: NSPoint(x: 14.6, y: 2.6))
+            p.curve(to: NSPoint(x: 17.2, y: 2.2 + wave),
+                    controlPoint1: NSPoint(x: 16.2, y: 1.4),
+                    controlPoint2: NSPoint(x: 17.2, y: 1.4))
         }
     }
 
@@ -279,37 +283,53 @@ enum CatIcon {
                                        legPhase: CGFloat, color: NSColor) {
         withFacing(facingRight, offsetX: offsetX, poseWidth: 21) {
             color.set()
-            // One shared bob so body, head, tail, and hips move as a unit
-            let bob = sin(legPhase * 2) * 0.4
+            // One shared bob (two beats per stride) so the cat moves as a unit
+            let bob = sin(legPhase * 2) * 0.35
 
-            // Legs first, so the body overlaps their tops. Diagonal pairs
-            // swing in anti-phase like a real walk cycle.
-            let anchors: [CGFloat] = [5.5, 8.5, 12.5, 15.5]
-            let phases:  [CGFloat] = [0, .pi, .pi, 0]
-            for (i, ax) in anchors.enumerated() {
-                let swing = sin(legPhase + phases[i]) * 0.45
-                strokePath(width: 1.7) { p in
-                    p.move(to: NSPoint(x: ax, y: 6 + bob))
-                    p.line(to: NSPoint(x: ax + sin(swing) * 4.2, y: 6 + bob - cos(swing) * 4.6))
+            // Lateral-sequence walk: footfalls LH → LF → RH → RF, each a
+            // quarter cycle apart. Near-side legs slightly offset from the
+            // far pair so all four read at silhouette size.
+            // (hipX, hipY, quarter-phase, stride reach)
+            let legs: [(CGFloat, CGFloat, CGFloat, CGFloat)] = [
+                (6.0,  7.0, 0.00, 2.4),   // hind near  (LH)
+                (13.8, 7.4, 0.25, 2.1),   // front near (LF)
+                (6.9,  7.0, 0.50, 2.4),   // hind far   (RH)
+                (14.7, 7.4, 0.75, 2.1),   // front far  (RF)
+            ]
+            for (hipX, hipY, quarter, reach) in legs {
+                let theta = legPhase + quarter * 2 * .pi
+                // Swing (sin > 0): paw lifts and sweeps forward.
+                // Stance (sin ≤ 0): paw stays planted on the ground line.
+                let lift = max(0, sin(theta)) * 1.7
+                let foot = NSPoint(x: hipX - cos(theta) * reach, y: 1.4 + lift)
+                let hip = NSPoint(x: hipX, y: hipY + bob)
+                // Slight backward bend at the joint so legs aren't stiff rods
+                let bend = NSPoint(x: (hip.x + foot.x) / 2 - 0.8,
+                                   y: (hip.y + foot.y) / 2)
+                strokePath(width: 1.8) { p in
+                    p.move(to: hip)
+                    p.curve(to: foot, controlPoint1: bend, controlPoint2: bend)
                 }
             }
 
-            // Raised tail
+            // Raised tail with a touch of follow-through behind the hips
+            let follow = sin(legPhase * 2 - 1.6) * 0.4
             strokePath(width: 1.6) { p in
-                p.move(to: NSPoint(x: 4.2, y: 8.6 + bob))
-                p.curve(to: NSPoint(x: 0.9, y: 13.6 + bob),
-                        controlPoint1: NSPoint(x: 2.2, y: 9.4 + bob),
-                        controlPoint2: NSPoint(x: 0.6, y: 11.2 + bob))
+                p.move(to: NSPoint(x: 4.0, y: 8.8 + bob))
+                p.curve(to: NSPoint(x: 0.9, y: 13.6 + bob + follow),
+                        controlPoint1: NSPoint(x: 2.0, y: 9.6 + bob),
+                        controlPoint2: NSPoint(x: 0.6, y: 11.2 + bob + follow))
             }
 
-            NSBezierPath(ovalIn: NSRect(x: 3.4, y: 5.2 + bob, width: 12.6, height: 5.6)).fill()
-            NSBezierPath(ovalIn: NSRect(x: 14.6, y: 6.6 + bob, width: 6.4, height: 6.4)).fill()
-            ear(from: NSPoint(x: 15.2, y: 11.6 + bob),
-                base: NSPoint(x: 17.2, y: 12.6 + bob),
-                tip: NSPoint(x: 15.4, y: 14.6 + bob))
-            ear(from: NSPoint(x: 18.2, y: 12.6 + bob),
-                base: NSPoint(x: 20.2, y: 11.6 + bob),
-                tip: NSPoint(x: 20.4, y: 14.4 + bob))
+            // Single-oval body, head overlapping its front
+            NSBezierPath(ovalIn: NSRect(x: 3.0, y: 5.2 + bob, width: 13.8, height: 6.0)).fill()
+            NSBezierPath(ovalIn: NSRect(x: 14.8, y: 7.4 + bob, width: 6.0, height: 6.0)).fill()
+            ear(from: NSPoint(x: 15.3, y: 12.4 + bob),
+                base: NSPoint(x: 17.1, y: 13.2 + bob),
+                tip: NSPoint(x: 15.6, y: 15.3 + bob))
+            ear(from: NSPoint(x: 18.0, y: 13.2 + bob),
+                base: NSPoint(x: 19.8, y: 12.2 + bob),
+                tip: NSPoint(x: 20.1, y: 15.1 + bob))
         }
     }
 
@@ -358,20 +378,25 @@ enum CatIcon {
             NSBezierPath(ovalIn: NSRect(x: 3.4, y: 1.3, width: 8.6, height: 8.6)).fill()
             NSBezierPath(ovalIn: NSRect(x: 9.2, y: 1.3, width: 5.6, height: 9.6)).fill()
 
-            // Head dipped toward the working paw
-            NSBezierPath(ovalIn: NSRect(x: 10.9, y: 8.0, width: 6.4, height: 6.4)).fill()
-            ear(from: NSPoint(x: 11.6, y: 13.2), base: NSPoint(x: 13.6, y: 14.0),
-                tip: NSPoint(x: 12.0, y: 16.2))
-            ear(from: NSPoint(x: 14.8, y: 14.0), base: NSPoint(x: 16.9, y: 13.2),
-                tip: NSPoint(x: 17.0, y: 16.0))
+            // Wash cycle: the paw sweeps up over the face and back down,
+            // and the head bows into each stroke
+            let wipe = (CGFloat(sin(t * 4.2)) + 1) / 2   // 0 → 1 → 0
+            let bow = wipe * 1.5
 
-            // Front paw strokes over the face, quick little circles
-            let lick = CGFloat(sin(t * 6))
-            strokePath(width: 1.7) { p in
-                p.move(to: NSPoint(x: 12.4, y: 3.6))
-                p.curve(to: NSPoint(x: 14.2 + lick * 0.5, y: 7.9 + lick * 0.9),
-                        controlPoint1: NSPoint(x: 14.4, y: 4.6),
-                        controlPoint2: NSPoint(x: 14.6, y: 6.2))
+            NSBezierPath(ovalIn: NSRect(x: 10.9, y: 8.8 - bow, width: 6.4, height: 6.4)).fill()
+            ear(from: NSPoint(x: 11.6, y: 13.7 - bow), base: NSPoint(x: 13.6, y: 14.5 - bow),
+                tip: NSPoint(x: 12.0, y: 16.7 - bow))
+            ear(from: NSPoint(x: 14.8, y: 14.5 - bow), base: NSPoint(x: 16.9, y: 13.7 - bow),
+                tip: NSPoint(x: 17.0, y: 16.5 - bow))
+
+            // Fore-leg bowing out in front of the chest so the whole sweep
+            // stays proud of the silhouette and reads at menu-bar size
+            let tip = NSPoint(x: 14.8 + wipe * 2.6, y: 3.8 + wipe * 6.2)
+            strokePath(width: 1.8) { p in
+                p.move(to: NSPoint(x: 13.8, y: 2.8))
+                p.curve(to: tip,
+                        controlPoint1: NSPoint(x: 16.8, y: 4.2),
+                        controlPoint2: NSPoint(x: 17.8, y: 6.6))
             }
         }
     }
