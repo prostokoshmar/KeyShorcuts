@@ -24,8 +24,6 @@ struct ClipboardHistoryView: View {
                     itemListView
                 }
             }
-
-            CatStrollerOverlay()
         }
         .frame(width: 480, height: 620)
     }
@@ -95,7 +93,9 @@ struct ClipboardHistoryView: View {
 
     private var emptyStateView: some View {
         VStack(spacing: 14) {
-            SleepingCatView()
+            Image(systemName: "doc.on.clipboard")
+                .font(.system(size: 44))
+                .foregroundStyle(.secondary)
             Text("No clipboard history yet")
                 .font(.title3.weight(.medium))
                 .foregroundStyle(.secondary)

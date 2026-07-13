@@ -28,8 +28,6 @@ struct FileTrayView: View {
                 }
             }
 
-            CatStrollerOverlay()
-
             // Drop highlight ring
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke((settings.themeAccent ?? Color.accentColor).opacity(isDropTargeted ? 0.9 : 0),

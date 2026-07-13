@@ -276,13 +276,7 @@ private struct AppearanceTab: View {
 
                     Toggle("Animate menu bar icon", isOn: $settings.menuBarIconAnimated)
                         .toggleStyle(.switch)
-                    Text("The icon gives a little bounce on events — Keep Awake toggles, new conversions, clipboard captures. The cat sleeps with a drifting ᶻᶻᶻ while Keep Awake is off, and wakes up when it's on.")
-                        .font(.caption).foregroundStyle(.tertiary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Toggle("Cat visits app windows", isOn: $settings.windowCatEnabled)
-                        .toggleStyle(.switch)
-                    Text("Every so often a little cat strolls along the bottom of the Shortcuts, Clipboard History, and File Tray windows, sits down for a moment, and wanders off again.")
+                    Text("The icon gives a little bounce on events — Keep Awake toggles, new conversions, clipboard captures. While Keep Awake is off the cat naps in changing poses with a drifting ᶻᶻᶻ; when it's on, it spends its day walking, sitting, grooming, eating, stretching, and playing with its ball.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

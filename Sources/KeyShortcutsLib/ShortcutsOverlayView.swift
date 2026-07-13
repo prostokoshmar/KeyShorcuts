@@ -29,8 +29,6 @@ struct ShortcutsOverlayView: View {
                     scrollContent
                 }
             }
-
-            CatStrollerOverlay()
         }
         .frame(width: 920, height: 620)
     }
