@@ -24,9 +24,17 @@ struct AppSwitcherView: View {
 
     static func containerSize(for count: Int, layout: AppSwitcherLayout = .radialRing) -> CGFloat {
         switch layout {
-        case .segmentedTorus, .concentric: return 840
-        case .radialRing: return (dynamicRadius(for: count) + 220) * 2
+        case .segmentedTorus: return 840
+        case .concentric:     return max(840, (concentricOuterRadius(for: count) + 220) * 2)
+        case .radialRing:     return (dynamicRadius(for: count) + 220) * 2
         }
+    }
+
+    // Outer-ring radius grows with the app count so icons don't overlap and
+    // steal each other's hover/click targets.
+    static func concentricOuterRadius(for count: Int) -> CGFloat {
+        let outerCount = max(count - 4, 1)
+        return max(182, CGFloat(outerCount) * 78 / (2 * .pi))
     }
 
     static func dynamicRadius(for count: Int) -> CGFloat {
@@ -353,7 +361,8 @@ private struct ConcentricLayout: View {
     @State private var hoverGeneration: Int = 0
 
     private let innerRadius: CGFloat = 82
-    private let outerRadius: CGFloat = 182
+    private var outerRadius: CGFloat { AppSwitcherView.concentricOuterRadius(for: apps.count) }
+    private var canvasSize: CGFloat { AppSwitcherView.containerSize(for: apps.count, layout: .concentric) }
     private let innerIconSize: CGFloat = 52
     private let outerIconSize: CGFloat = 62
 
@@ -403,29 +412,53 @@ private struct ConcentricLayout: View {
                         windows: entry.windows,
                         onWindowChosen: { win in onWindowChosen(entry, win) }
                     )
+                    // Keep the hover alive while the mouse travels onto the card,
+                    // otherwise the cell's exit clears it and the card vanishes.
+                    .onHover { over in if over { enter(entry.id) } else { scheduleLeave() } }
                     .offset(x: cos(angle) * (r + 90), y: sin(angle) * (r + 90))
                     .zIndex(100)
                     .transition(.opacity.combined(with: .scale(scale: 0.92)))
                 }
             }
         }
-        .frame(width: 840, height: 840)
+        .frame(width: canvasSize, height: canvasSize)
+    }
+
+    // Enter/leave with a generation counter: when the mouse moves between cells,
+    // SwiftUI can deliver the new cell's enter before the old cell's exit — a bare
+    // "exit → nil" would wipe the fresh hover and make selection flicker.
+    private func enter(_ id: pid_t) {
+        hoverGeneration += 1
+        withAnimation(.easeOut(duration: 0.12)) { hoveredAppID = id }
+    }
+
+    private func scheduleLeave() {
+        let gen = hoverGeneration
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            guard hoverGeneration == gen else { return }
+            withAnimation(.easeOut(duration: 0.12)) { hoveredAppID = nil }
+        }
     }
 
     @ViewBuilder
     private func concentricCell(entry: RunningAppEntry, size: CGFloat, dx: Double, dy: Double) -> some View {
+        let isHovered = hoveredAppID == entry.id
+        // The label stays in the layout permanently (fading via opacity) — inserting
+        // it conditionally resized the cell on hover, which moved the icon out from
+        // under the cursor and made hover/click flicker.
         VStack(spacing: 4) {
             ZStack {
                 Circle()
                     .stroke(
-                        hoveredAppID == entry.id
+                        isHovered
                             ? Color(red: 1, green: 0.08, blue: 0.45).opacity(0.85)
                             : Color.white.opacity(0),
                         lineWidth: 2
                     )
                     .frame(width: size + 14, height: size + 14)
 
-                LiquidGlassCircle(size: size + 8, isHovered: hoveredAppID == entry.id)
+                LiquidGlassCircle(size: size + 8, isHovered: isHovered)
 
                 if let icon = entry.app.icon {
                     Image(nsImage: icon)
@@ -434,27 +467,22 @@ private struct ConcentricLayout: View {
                         .clipShape(RoundedRectangle(cornerRadius: size * 0.22))
                 }
             }
-            .scaleEffect(hoveredAppID == entry.id ? 1.16 : 1.0)
-            .animation(.easeOut(duration: 0.12), value: hoveredAppID)
+            .scaleEffect(isHovered ? 1.16 : 1.0)
 
-            if hoveredAppID == entry.id {
-                Text(entry.app.localizedName ?? "")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Color.black.opacity(0.70), in: RoundedRectangle(cornerRadius: 6))
-                    .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .top)))
-            }
+            Text(entry.app.localizedName ?? "")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(Color.black.opacity(0.70), in: RoundedRectangle(cornerRadius: 6))
+                .opacity(isHovered ? 1 : 0)
+                .scaleEffect(isHovered ? 1 : 0.85, anchor: .top)
         }
-        .offset(x: dx, y: dy)
-        .onHover { over in
-            withAnimation(.easeOut(duration: 0.12)) {
-                hoveredAppID = over ? entry.id : nil
-            }
-        }
-        .onTapGesture { onAppChosen(entry) }
+        .animation(.easeOut(duration: 0.12), value: hoveredAppID)
         .contentShape(Rectangle())
+        .onHover { over in if over { enter(entry.id) } else { scheduleLeave() } }
+        .onTapGesture { onAppChosen(entry) }
+        .offset(x: dx, y: dy)
     }
 }
 
