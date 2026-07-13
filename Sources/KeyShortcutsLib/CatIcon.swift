@@ -6,7 +6,7 @@ import Cocoa
 /// ball, loaf (dozing off with slow head-nods), and side sprawl — breathing,
 /// twitching an ear, flicking its tail, and exhaling little "z" glyphs.
 /// Awake (keep-awake on): a day-in-the-life loop — it strolls across the
-/// icon, sits and blinks, grooms with a paw, eats from a bowl, does a big
+/// icon, sits, grooms with a paw, eats from a bowl, does a big
 /// stretch, and bats a ball around before settling down to sit again.
 enum CatIcon {
     static let canvasSize = NSSize(width: 34, height: 18)
@@ -53,7 +53,7 @@ enum CatIcon {
                 let p = CGFloat(ph / 7)
                 drawWalkingCat(offsetX: 0.5 + p * 12, facingRight: true,
                                legPhase: CGFloat(t * 7), color: color)
-            case ..<13:     // sit: tail swish, ear twitch, blinks
+            case ..<13:     // sit: tail swish, ear twitch
                 drawSittingCat(offsetX: 16.5, facingRight: true, at: t, color: color)
             case ..<19:     // groom: quick paw strokes over the face
                 drawGroomingCat(offsetX: 16.5, facingRight: true, at: t, color: color)
@@ -147,26 +147,12 @@ enum CatIcon {
         body()
     }
 
-    /// Punches an eye out of the silhouette; `open` 1 = round eye, ~0.1 = shut slit.
-    private static func punchEye(x: CGFloat, y: CGFloat, open: CGFloat) {
-        guard let ctx = NSGraphicsContext.current?.cgContext else { return }
-        ctx.setBlendMode(.clear)
-        NSBezierPath(ovalIn: NSRect(x: x - 0.7, y: y - 0.85 * open,
-                                    width: 1.4, height: 1.7 * open)).fill()
-        ctx.setBlendMode(.normal)
-    }
-
     private static func strokePath(width: CGFloat, _ build: (NSBezierPath) -> Void) {
         let p = NSBezierPath()
         build(p)
         p.lineWidth = width
         p.lineCapStyle = .round
         p.stroke()
-    }
-
-    /// Blink schedule shared by the open-eyed poses.
-    private static func eyeOpenAmount(at t: TimeInterval) -> CGFloat {
-        t.truncatingRemainder(dividingBy: 3.6) > 3.35 ? 0.12 : 1.0
     }
 
     /// Brief ear-twitch wiggle every `every` seconds.
@@ -293,8 +279,8 @@ enum CatIcon {
                                        legPhase: CGFloat, color: NSColor) {
         withFacing(facingRight, offsetX: offsetX, poseWidth: 21) {
             color.set()
+            // One shared bob so body, head, tail, and hips move as a unit
             let bob = sin(legPhase * 2) * 0.4
-            let headBob = sin(legPhase * 2 + 1.2) * 0.3
 
             // Legs first, so the body overlaps their tops. Diagonal pairs
             // swing in anti-phase like a real walk cycle.
@@ -308,28 +294,27 @@ enum CatIcon {
                 }
             }
 
-            // Raised tail, swaying gently with the stride
-            let sway = sin(legPhase * 0.9) * 0.6
+            // Raised tail
             strokePath(width: 1.6) { p in
                 p.move(to: NSPoint(x: 4.2, y: 8.6 + bob))
-                p.curve(to: NSPoint(x: 0.9 + sway, y: 13.6 + bob),
+                p.curve(to: NSPoint(x: 0.9, y: 13.6 + bob),
                         controlPoint1: NSPoint(x: 2.2, y: 9.4 + bob),
-                        controlPoint2: NSPoint(x: 0.6 + sway, y: 11.2 + bob))
+                        controlPoint2: NSPoint(x: 0.6, y: 11.2 + bob))
             }
 
             NSBezierPath(ovalIn: NSRect(x: 3.4, y: 5.2 + bob, width: 12.6, height: 5.6)).fill()
-            NSBezierPath(ovalIn: NSRect(x: 14.6, y: 6.6 + bob + headBob, width: 6.4, height: 6.4)).fill()
-            ear(from: NSPoint(x: 15.2, y: 11.6 + bob + headBob),
-                base: NSPoint(x: 17.2, y: 12.6 + bob + headBob),
-                tip: NSPoint(x: 15.4, y: 14.6 + bob + headBob))
-            ear(from: NSPoint(x: 18.2, y: 12.6 + bob + headBob),
-                base: NSPoint(x: 20.2, y: 11.6 + bob + headBob),
-                tip: NSPoint(x: 20.4, y: 14.4 + bob + headBob))
+            NSBezierPath(ovalIn: NSRect(x: 14.6, y: 6.6 + bob, width: 6.4, height: 6.4)).fill()
+            ear(from: NSPoint(x: 15.2, y: 11.6 + bob),
+                base: NSPoint(x: 17.2, y: 12.6 + bob),
+                tip: NSPoint(x: 15.4, y: 14.6 + bob))
+            ear(from: NSPoint(x: 18.2, y: 12.6 + bob),
+                base: NSPoint(x: 20.2, y: 11.6 + bob),
+                tip: NSPoint(x: 20.4, y: 14.4 + bob))
         }
     }
 
     /// Sitting upright: round haunch, chest, head. Tail sweeps behind,
-    /// the front ear twitches, and the punched-out eye blinks.
+    /// and the front ear twitches.
     private static func drawSittingCat(offsetX: CGFloat, facingRight: Bool,
                                        at t: TimeInterval, color: NSColor) {
         withFacing(facingRight, offsetX: offsetX, poseWidth: 17.2) {
@@ -352,12 +337,10 @@ enum CatIcon {
                 tip: NSPoint(x: 11.9, y: 17.4))
             ear(from: NSPoint(x: 14.7, y: 15.2), base: NSPoint(x: 16.9, y: 14.4),
                 tip: NSPoint(x: 17.0 + twitch, y: 17.2))
-
-            punchEye(x: 15.3, y: 12.3, open: eyeOpenAmount(at: t))
         }
     }
 
-    /// Grooming: the sitting pose with the head dipped, eye shut, and a
+    /// Grooming: the sitting pose with the head dipped and a
     /// front paw making quick strokes over the face.
     private static func drawGroomingCat(offsetX: CGFloat, facingRight: Bool,
                                         at t: TimeInterval, color: NSColor) {
@@ -381,7 +364,6 @@ enum CatIcon {
                 tip: NSPoint(x: 12.0, y: 16.2))
             ear(from: NSPoint(x: 14.8, y: 14.0), base: NSPoint(x: 16.9, y: 13.2),
                 tip: NSPoint(x: 17.0, y: 16.0))
-            punchEye(x: 15.4, y: 11.2, open: 0.12)
 
             // Front paw strokes over the face, quick little circles
             let lick = CGFloat(sin(t * 6))
@@ -419,8 +401,13 @@ enum CatIcon {
 
             NSBezierPath(ovalIn: NSRect(x: 3.4, y: 5.2, width: 12.6, height: 5.6)).fill()
 
-            // Head down at the bowl, bobbing as it eats
+            // Head down at the bowl, bobbing as it eats; a thick neck keeps
+            // it joined to the shoulders as it moves
             let munch = abs(CGFloat(sin(t * 2.8)))
+            strokePath(width: 4.6) { p in
+                p.move(to: NSPoint(x: 14.4, y: 8.2))
+                p.line(to: NSPoint(x: 17.8, y: 5.6 + munch))
+            }
             NSBezierPath(ovalIn: NSRect(x: 15.6, y: 2.4 + munch, width: 5.8, height: 5.8)).fill()
             ear(from: NSPoint(x: 16.0, y: 6.8 + munch), base: NSPoint(x: 17.9, y: 7.8 + munch),
                 tip: NSPoint(x: 16.3, y: 9.9 + munch))
@@ -437,12 +424,11 @@ enum CatIcon {
                                           at t: TimeInterval, color: NSColor) {
         withFacing(facingRight, offsetX: offsetX, poseWidth: 22) {
             color.set()
-            let wiggle = CGFloat(sin(t * 3)) * 0.3
 
             // Back legs under the raised haunch
             for ax in [5.5, 7.5] as [CGFloat] {
                 strokePath(width: 1.7) { p in
-                    p.move(to: NSPoint(x: ax, y: 5 + wiggle))
+                    p.move(to: NSPoint(x: ax, y: 5))
                     p.line(to: NSPoint(x: ax, y: 1.5))
                 }
             }
@@ -457,23 +443,25 @@ enum CatIcon {
                 p.line(to: NSPoint(x: 18.6, y: 1.5))
             }
 
-            // Low chest sweeping up to the high haunch
-            NSBezierPath(ovalIn: NSRect(x: 10.2, y: 1.7, width: 6.6, height: 4.4)).fill()
-            NSBezierPath(ovalIn: NSRect(x: 3.2, y: 3.4 + wiggle, width: 8.2, height: 6.6)).fill()
+            // One sloping body: high haunch bridged into the low chest so
+            // the silhouette stays a single connected mass
+            NSBezierPath(ovalIn: NSRect(x: 3.2, y: 3.4, width: 8.4, height: 7.0)).fill()
+            NSBezierPath(ovalIn: NSRect(x: 6.5, y: 2.2, width: 8.5, height: 5.6)).fill()
+            NSBezierPath(ovalIn: NSRect(x: 11.0, y: 1.7, width: 6.4, height: 4.6)).fill()
 
-            // Head up at the front
-            NSBezierPath(ovalIn: NSRect(x: 15.4, y: 4.2, width: 5.6, height: 5.6)).fill()
-            ear(from: NSPoint(x: 15.8, y: 8.6), base: NSPoint(x: 17.7, y: 9.5),
-                tip: NSPoint(x: 16.1, y: 11.6))
-            ear(from: NSPoint(x: 18.7, y: 9.5), base: NSPoint(x: 20.6, y: 8.4),
-                tip: NSPoint(x: 20.8, y: 11.3))
+            // Head up at the front, resting on the chest
+            NSBezierPath(ovalIn: NSRect(x: 14.6, y: 3.6, width: 5.8, height: 5.8)).fill()
+            ear(from: NSPoint(x: 15.0, y: 8.2), base: NSPoint(x: 16.9, y: 9.1),
+                tip: NSPoint(x: 15.3, y: 11.2))
+            ear(from: NSPoint(x: 17.9, y: 9.1), base: NSPoint(x: 19.8, y: 8.0),
+                tip: NSPoint(x: 20.0, y: 10.9))
 
             // Tail curling high off the raised butt
             strokePath(width: 1.6) { p in
-                p.move(to: NSPoint(x: 4.4, y: 9.4 + wiggle))
-                p.curve(to: NSPoint(x: 1.4, y: 14.0 + wiggle),
-                        controlPoint1: NSPoint(x: 2.6, y: 10.4 + wiggle),
-                        controlPoint2: NSPoint(x: 1.0, y: 12.0 + wiggle))
+                p.move(to: NSPoint(x: 4.4, y: 9.6))
+                p.curve(to: NSPoint(x: 1.4, y: 14.0),
+                        controlPoint1: NSPoint(x: 2.6, y: 10.6),
+                        controlPoint2: NSPoint(x: 1.0, y: 12.2))
             }
         }
     }
@@ -504,7 +492,6 @@ enum CatIcon {
                 tip: NSPoint(x: 14.5, y: 10.5))
             ear(from: NSPoint(x: 17.1, y: 8.4), base: NSPoint(x: 19.0, y: 7.2),
                 tip: NSPoint(x: 19.2, y: 10.1))
-            punchEye(x: 17.4, y: 5.6, open: 1.0)
 
             // Batting paw, jabbing at the ball
             let bat = CGFloat(sin(t * 5.5))
