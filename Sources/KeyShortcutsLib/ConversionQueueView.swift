@@ -34,7 +34,7 @@ struct ConversionQueueView: View {
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45) : .accentColor)
+                    .background(settings.themeAccent ?? .accentColor)
                     .clipShape(Capsule())
             }
             Spacer()
@@ -43,7 +43,7 @@ struct ConversionQueueView: View {
                     Button("Approve All") { manager.approveAll() }
                         .buttonStyle(.plain)
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45) : .accentColor)
+                        .foregroundStyle(settings.themeAccent ?? .accentColor)
                     Button("Dismiss All") { manager.dismissAll() }
                         .buttonStyle(.plain)
                         .font(.system(size: 11))
@@ -144,7 +144,7 @@ private struct ConversionRowView: View {
                 if case .converting(let p) = item.state {
                     ProgressView(value: p)
                         .progressViewStyle(.linear)
-                        .tint(settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45) : .accentColor)
+                        .tint(settings.themeAccent ?? .accentColor)
                         .frame(height: 4)
                         .padding(.top, 2)
                 }
@@ -215,7 +215,7 @@ private struct ConvertButtonStyle: ButtonStyle {
             .font(.system(size: 11, weight: .medium))
             .padding(.horizontal, 10).padding(.vertical, 4)
             .background(primary
-                ? (settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45) : Color.accentColor).opacity(configuration.isPressed ? 0.7 : 1)
+                ? (settings.themeAccent ?? Color.accentColor).opacity(configuration.isPressed ? 0.7 : 1)
                 : Color.primary.opacity(configuration.isPressed ? 0.12 : 0.07))
             .foregroundStyle(primary ? Color.white : Color.primary)
             .cornerRadius(6)

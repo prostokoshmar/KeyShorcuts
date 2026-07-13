@@ -14,17 +14,20 @@ class GlobalKeyMonitor {
     private let escapeCallback: (() -> Void)?
     private let keepAwakeCallback: (() -> Void)?
     private let appSwitcherCallback: (() -> Void)?
+    private let fileTrayCallback: (() -> Void)?
 
     init(callback: @escaping (Bool) -> Void,
          clipboardCallback: (() -> Void)? = nil,
          escapeCallback: (() -> Void)? = nil,
          keepAwakeCallback: (() -> Void)? = nil,
-         appSwitcherCallback: (() -> Void)? = nil) {
+         appSwitcherCallback: (() -> Void)? = nil,
+         fileTrayCallback: (() -> Void)? = nil) {
         self.callback = callback
         self.clipboardCallback = clipboardCallback
         self.escapeCallback = escapeCallback
         self.keepAwakeCallback = keepAwakeCallback
         self.appSwitcherCallback = appSwitcherCallback
+        self.fileTrayCallback = fileTrayCallback
         setupEventTap()
     }
 
@@ -131,6 +134,7 @@ class GlobalKeyMonitor {
                 (settings.clipboardHotkey,   clipboardCallback),
                 (settings.keepAwakeHotkey,   keepAwakeCallback),
                 (settings.appSwitcherHotkey, appSwitcherCallback),
+                (settings.fileTrayHotkey,    fileTrayCallback),
             ]
             for (index, (hotkey, action)) in hotkeys.enumerated()
             where hotkey.matches(keyCode: keyCode, flags: flags) {

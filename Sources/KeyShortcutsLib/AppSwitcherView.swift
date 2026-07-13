@@ -285,9 +285,8 @@ private struct TorusWedge: View {
             if isHovered {
                 DonutSegmentShape(innerR: currentInnerR, outerR: currentOuterR,
                                   startRad: startRad, endRad: endRad)
-                    .stroke(settings.cuteMode
-                        ? Color(red: 1, green: 0.45, blue: 0.75).opacity(0.85)
-                        : Color.white.opacity(0.75), lineWidth: 1.5)
+                    .stroke((settings.themeAccentSoft ?? Color.white).opacity(0.85),
+                            lineWidth: 1.5)
                     .offset(x: cos(midAngle) * radialPush, y: sin(midAngle) * radialPush)
             }
 
@@ -321,11 +320,11 @@ private struct TorusWedge: View {
     }
 
     private var wedgeFill: LinearGradient {
-        if settings.cuteMode {
+        if let dark = settings.themeDark {
             return LinearGradient(
                 colors: [
-                    Color(red: 0.55, green: 0.02, blue: 0.22).opacity(isHovered ? 0.90 : 0.72),
-                    Color(red: 0.35, green: 0.01, blue: 0.14).opacity(isHovered ? 0.85 : 0.65),
+                    dark.opacity(isHovered ? 0.95 : 0.80),
+                    dark.opacity(isHovered ? 0.80 : 0.58),
                 ],
                 startPoint: .top, endPoint: .bottom
             )
@@ -341,7 +340,7 @@ private struct TorusWedge: View {
     }
 
     private var glassTint: LinearGradient {
-        let base = settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45) : Color.white
+        let base = settings.themeAccent ?? Color.white
         return LinearGradient(
             colors: [base.opacity(0.22), base.opacity(0.06)],
             startPoint: .top, endPoint: .bottom
@@ -359,6 +358,7 @@ private struct ConcentricLayout: View {
 
     @State private var hoveredAppID: pid_t? = nil
     @State private var hoverGeneration: Int = 0
+    @ObservedObject private var settings = AppSettings.shared
 
     private let innerRadius: CGFloat = 82
     private var outerRadius: CGFloat { AppSwitcherView.concentricOuterRadius(for: apps.count) }
@@ -452,7 +452,7 @@ private struct ConcentricLayout: View {
                 Circle()
                     .stroke(
                         isHovered
-                            ? Color(red: 1, green: 0.08, blue: 0.45).opacity(0.85)
+                            ? (settings.themeAccent ?? Color.white).opacity(0.85)
                             : Color.white.opacity(0),
                         lineWidth: 2
                     )
@@ -532,9 +532,7 @@ private struct AppIconCell: View {
             ZStack {
                 Circle()
                     .stroke(
-                        (settings.cuteMode
-                            ? Color(red: 1, green: 0.08, blue: 0.45)
-                            : Color.white).opacity(isHovered ? 0.85 : 0),
+                        (settings.themeAccent ?? Color.white).opacity(isHovered ? 0.85 : 0),
                         lineWidth: 2
                     )
                     .frame(width: iconSize + 16, height: iconSize + 16)

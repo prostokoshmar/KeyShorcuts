@@ -43,6 +43,50 @@ enum LiquidGlassIntensity: String, CaseIterable {
     }
 }
 
+enum AccentTheme: String, CaseIterable {
+    case none     = "none"
+    case pink     = "pink"
+    case mint     = "mint"
+    case lavender = "lavender"
+    case amber    = "amber"
+
+    var displayName: String {
+        switch self {
+        case .none:     return "None"
+        case .pink:     return "Pink 🌸"
+        case .mint:     return "Mint 🌿"
+        case .lavender: return "Lavender 💜"
+        case .amber:    return "Amber 🔥"
+        }
+    }
+
+    /// Main accent color components — nil for the neutral system look.
+    var accentRGB: (r: Double, g: Double, b: Double)? {
+        switch self {
+        case .none:     return nil
+        case .pink:     return (1.00, 0.08, 0.45)
+        case .mint:     return (0.05, 0.80, 0.55)
+        case .lavender: return (0.62, 0.44, 1.00)
+        case .amber:    return (1.00, 0.62, 0.04)
+        }
+    }
+
+    /// Deep background variant used for classic (non-glass) overlay fills.
+    var darkRGB: (r: Double, g: Double, b: Double)? {
+        switch self {
+        case .none:     return nil
+        case .pink:     return (0.38, 0.03, 0.18)
+        case .mint:     return (0.02, 0.24, 0.17)
+        case .lavender: return (0.17, 0.10, 0.33)
+        case .amber:    return (0.32, 0.19, 0.02)
+        }
+    }
+
+    var nsAccent: NSColor? {
+        accentRGB.map { NSColor(red: $0.r, green: $0.g, blue: $0.b, alpha: 1.0) }
+    }
+}
+
 enum AppSwitcherLayout: String, CaseIterable {
     case radialRing     = "radialRing"
     case segmentedTorus = "segmentedTorus"
@@ -150,6 +194,15 @@ class AppSettings: ObservableObject {
         didSet { appSwitcherHotkey.save(prefix: "appSwitcherHotkey") }
     }
 
+    @Published var fileTrayHotkey: ClipboardHotkey {
+        didSet { fileTrayHotkey.save(prefix: "fileTrayHotkey") }
+    }
+
+    /// Shake a file mid-drag to pop up the AirDrop / Tray drop zone.
+    @Published var shakeToDropZone: Bool {
+        didSet { UserDefaults.standard.set(shakeToDropZone, forKey: "shakeToDropZone") }
+    }
+
     @Published var appSwitcherShowAll: Bool {
         didSet { UserDefaults.standard.set(appSwitcherShowAll, forKey: "appSwitcherShowAll") }
     }
@@ -201,9 +254,12 @@ class AppSettings: ObservableObject {
         didSet { UserDefaults.standard.set(liquidGlassIntensity.rawValue, forKey: "liquidGlassIntensity") }
     }
 
-    @Published var cuteMode: Bool {
-        didSet { UserDefaults.standard.set(cuteMode, forKey: "cuteMode") }
+    @Published var accentTheme: AccentTheme {
+        didSet { UserDefaults.standard.set(accentTheme.rawValue, forKey: "accentTheme") }
     }
+
+    /// Legacy name — true whenever any accent theme is active.
+    var cuteMode: Bool { accentTheme != .none }
 
     /// Backed by the system login-item service, not UserDefaults. If the OS
     /// rejects the change we snap the published value back to the real state.
@@ -262,6 +318,8 @@ class AppSettings: ObservableObject {
         clipboardHotkey     = ClipboardHotkey.load(prefix: "clipboardHotkey",     fallback: .defaultClipboard)
         keepAwakeHotkey     = ClipboardHotkey.load(prefix: "keepAwakeHotkey",     fallback: .defaultKeepAwake)
         appSwitcherHotkey   = ClipboardHotkey.load(prefix: "appSwitcherHotkey",   fallback: .defaultAppSwitcher)
+        fileTrayHotkey      = ClipboardHotkey.load(prefix: "fileTrayHotkey",      fallback: .none)
+        shakeToDropZone     = UserDefaults.standard.object(forKey: "shakeToDropZone") as? Bool ?? true
         appSwitcherShowAll  = UserDefaults.standard.object(forKey: "appSwitcherShowAll") as? Bool ?? true
 
         let layoutRaw = UserDefaults.standard.string(forKey: "appSwitcherLayout") ?? ""
@@ -287,7 +345,13 @@ class AppSettings: ObservableObject {
         let igRaw = UserDefaults.standard.string(forKey: "liquidGlassIntensity") ?? ""
         liquidGlassIntensity = LiquidGlassIntensity(rawValue: igRaw) ?? .balanced
 
-        cuteMode = UserDefaults.standard.object(forKey: "cuteMode") as? Bool ?? false
+        // Migrate the old cuteMode bool to the theme enum on first run
+        if let raw = UserDefaults.standard.string(forKey: "accentTheme"),
+           let theme = AccentTheme(rawValue: raw) {
+            accentTheme = theme
+        } else {
+            accentTheme = (UserDefaults.standard.object(forKey: "cuteMode") as? Bool ?? false) ? .pink : .none
+        }
 
         launchAtLogin = LoginItem.isEnabled
 
@@ -314,6 +378,7 @@ extension AppSettings {
             ("Clipboard History", clipboardHotkey),
             ("Keep Awake",        keepAwakeHotkey),
             ("App Switcher",      appSwitcherHotkey),
+            ("File Tray",         fileTrayHotkey),
         ]
         return all
             .filter { $0.name != feature && hotkey.conflicts(with: $0.key) }
@@ -332,4 +397,5 @@ extension Notification.Name {
     static let clipboardEditingBegan             = Notification.Name("clipboardEditingBegan")
     static let watchedFoldersChanged             = Notification.Name("watchedFoldersChanged")
     static let conversionQueueChanged            = Notification.Name("conversionQueueChanged")
+    static let showFileTray                      = Notification.Name("showFileTray")
 }

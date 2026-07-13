@@ -32,12 +32,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private weak var conversionMenuItem: NSMenuItem?
     private weak var conversionBadgeItem: NSMenuItem?
 
+    // File tray + shake-to-drop-zone
+    private var fileTrayController: FileTrayWindowController?
+    private var dragShakeMonitor: DragShakeMonitor?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusBar()
         overlayController       = OverlayWindowController()
         clipboardController     = ClipboardOverlayWindowController()
         appSwitcherController   = AppSwitcherOverlayWindowController()
         conversionController    = ConversionQueueWindowController()
+        fileTrayController      = FileTrayWindowController()
+        dragShakeMonitor        = DragShakeMonitor()
         _ = ClipboardHistoryManager.shared
         _ = ConversionManager.shared
 
@@ -64,6 +70,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 guard let self = self else { return }
                 if self.clipboardController.isVisible { self.clipboardController.hide() }
                 if self.appSwitcherController.isVisible { self.appSwitcherController.hide() }
+                if self.fileTrayController?.isVisible == true { self.fileTrayController?.hide() }
             },
             keepAwakeCallback: { [weak self] in
                 self?.toggleKeepAwake()
@@ -75,8 +82,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 } else {
                     self.appSwitcherController.show()
                 }
+            },
+            fileTrayCallback: { [weak self] in
+                self?.toggleFileTray()
             }
         )
+        NotificationCenter.default.addObserver(
+            forName: .showFileTray, object: nil, queue: .main
+        ) { [weak self] _ in
+            if self?.fileTrayController?.isVisible != true { self?.fileTrayController?.show() }
+        }
         NotificationCenter.default.addObserver(
             forName: .conversionQueueChanged, object: nil, queue: .main
         ) { [weak self] _ in self?.refreshConversionUI() }
@@ -87,7 +102,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let hasAX = note.object as? Bool ?? false
             self?.showPermissionReminder(hasAccessibility: hasAX)
         }
-        AppSettings.shared.$cuteMode
+        AppSettings.shared.$accentTheme
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.applyStatusBarTint() }
             .store(in: &cancellables)
@@ -169,6 +184,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         keepAwakeMenuItem = keepAwakeItem
 
         menu.addItem(withTitle: "Clipboard History", action: #selector(toggleClipboardHistory), keyEquivalent: "")
+        menu.addItem(withTitle: "File Tray", action: #selector(toggleFileTrayMenu), keyEquivalent: "")
 
         // Conversions submenu
         let convItem = NSMenuItem(title: "Conversions", action: nil, keyEquivalent: "")
@@ -255,6 +271,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func toggleClipboardHistory() {
         if clipboardController.isVisible { clipboardController.hide() } else { clipboardController.show() }
+    }
+
+    @objc private func toggleFileTrayMenu() {
+        toggleFileTray()
+    }
+
+    private func toggleFileTray() {
+        guard let tray = fileTrayController else { return }
+        if tray.isVisible { tray.hide() } else { tray.show() }
     }
 
     @objc private func keepAwakeSelectOff() {
@@ -390,9 +415,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setStatusBarImage(symbolName: String, desc: String) {
         guard let button = statusItem.button else { return }
-        if AppSettings.shared.cuteMode {
-            let pink = NSColor(red: 1.0, green: 0.08, blue: 0.45, alpha: 1.0)
-            let config = NSImage.SymbolConfiguration(paletteColors: [pink])
+        if let tint = AppSettings.shared.accentTheme.nsAccent {
+            let config = NSImage.SymbolConfiguration(paletteColors: [tint])
             if let img = NSImage(systemSymbolName: symbolName, accessibilityDescription: desc)?
                 .withSymbolConfiguration(config) {
                 button.image = img

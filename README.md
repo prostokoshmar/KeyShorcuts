@@ -1,6 +1,6 @@
 # Key Shortcuts
 
-A macOS menu bar utility with five productivity features: keyboard shortcut viewer, radial app switcher, clipboard history, keep-awake mode, and **file converter** (rename-to-convert).
+A macOS menu bar utility with six productivity features: keyboard shortcut viewer, radial app switcher, clipboard history, keep-awake mode, **file tray** (with shake-to-AirDrop), and **file converter** (rename-to-convert).
 
 ## Features
 
@@ -25,6 +25,16 @@ A macOS menu bar utility with five productivity features: keyboard shortcut view
 ### Keep Awake
 - Prevents the display from sleeping while active
 - Toggle via the menu bar or a configurable hotkey (default: ⌘K)
+
+### File Tray + Shake to AirDrop
+- A floating shelf to park files: drop them in, drag them back out anywhere, double-click to open
+- **Shake a file while dragging it** — a drop zone pops up under the cursor with two targets: **AirDrop** (opens the share sheet immediately) and **Add to Tray**
+- Per-file actions: AirDrop, reveal in Finder, remove; plus AirDrop All / Clear
+- Open from the menu bar, or set a hotkey in Preferences; tray contents persist across launches
+
+### Accent Themes
+- Pink 🌸, Mint 🌿, Lavender 💜, or Amber 🔥 — tints every overlay, badge, hover state, and the menu bar icon
+- Pick **None** for the neutral system look (Preferences → Appearance)
 
 ### Convert (Rename to Convert)
 Watches folders you choose. When a file's extension doesn't match its actual content (e.g. a HEIC file renamed to `.jpg`), it proposes converting it — no separate converter app needed.

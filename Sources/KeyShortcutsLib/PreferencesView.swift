@@ -22,7 +22,8 @@ struct PreferencesView: View {
                 .tag(4)
         }
         .frame(width: 500, height: 580)
-        .tint(settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45) : .accentColor)
+        .tint(settings.themeAccent ?? .accentColor)
+        .animation(.easeInOut(duration: 0.25), value: settings.accentTheme)
     }
 }
 
@@ -95,6 +96,18 @@ private struct GeneralTab: View {
                     Text("Keep Awake").font(.headline)
                     HotkeyField(label: "Shortcut", feature: "Keep Awake", hotkey: $settings.keepAwakeHotkey)
                     Text("Shortcut always activates indefinite mode. Use the menu icon to set a timed duration.")
+                        .font(.caption).foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("File Tray").font(.headline)
+                    HotkeyField(label: "Shortcut", feature: "File Tray", hotkey: $settings.fileTrayHotkey)
+                    Toggle("Shake a dragged file to show the AirDrop / Tray drop zone", isOn: $settings.shakeToDropZone)
+                        .toggleStyle(.switch)
+                    Text("Also available from the menu bar. Drop files into the tray to park them, drag them back out anywhere, or AirDrop them.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -236,14 +249,14 @@ private struct AppearanceTab: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 6) {
-                        Text("Cute Mode").font(.headline)
-                        Text("🌸")
+                    Text("Accent Theme").font(.headline)
+                    Picker("", selection: $settings.accentTheme) {
+                        ForEach(AccentTheme.allCases, id: \.self) {
+                            Text($0.displayName).tag($0)
+                        }
                     }
-                    Toggle("Enable Cute Mode", isOn: $settings.cuteMode)
-                        .toggleStyle(.switch)
-                        .tint(Color(red: 1, green: 0.08, blue: 0.45))
-                    Text("Applies a deep pink tint to all overlay backgrounds, key badges, hover states, and borders.")
+                    .pickerStyle(.segmented).labelsHidden()
+                    Text("Tints all overlay backgrounds, key badges, hover states, borders, and the menu bar icon. Pick None for the neutral system look.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

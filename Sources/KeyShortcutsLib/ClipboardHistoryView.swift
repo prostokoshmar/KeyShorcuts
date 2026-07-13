@@ -119,7 +119,6 @@ struct ClipboardItemRowView: View {
     @State private var editText  = ""
     @ObservedObject private var settings = AppSettings.shared
 
-    private var pinkAccent: Color { Color(red: 1, green: 0.08, blue: 0.45) }
 
     var body: some View {
         Group {
@@ -134,7 +133,7 @@ struct ClipboardItemRowView: View {
     // MARK: - Editing view
 
     private var editingView: some View {
-        let editAccent = settings.cuteMode ? pinkAccent : Color.accentColor
+        let editAccent = settings.themeAccent ?? Color.accentColor
         return VStack(alignment: .trailing, spacing: 6) {
             FocusedTextEditor(text: $editText)
                 .frame(maxWidth: .infinity, minHeight: 70, maxHeight: 120)
@@ -226,8 +225,8 @@ struct ClipboardItemRowView: View {
         .background(
             RoundedRectangle(cornerRadius: 9, style: .continuous)
                 .fill(isHovered
-                    ? (settings.cuteMode ? pinkAccent.opacity(0.16) : Color.primary.opacity(0.1))
-                    : (settings.cuteMode ? pinkAccent.opacity(0.06) : Color.primary.opacity(0.04)))
+                    ? (settings.themeAccent.map { $0.opacity(0.16) } ?? Color.primary.opacity(0.1))
+                    : (settings.themeAccent.map { $0.opacity(0.06) } ?? Color.primary.opacity(0.04)))
         )
         .contentShape(Rectangle())
         .onHover { isHovered = $0 }

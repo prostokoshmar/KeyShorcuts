@@ -68,9 +68,19 @@ class ClipboardOverlayWindowController {
             let wf = panel?.frame ?? .zero
             panel?.setFrameOrigin(NSPoint(x: sf.midX - wf.width / 2, y: sf.midY - wf.height / 2))
         }
-        panel?.alphaValue = 1
         NSApp.activate(ignoringOtherApps: true)
+        panel?.alphaValue = 0
         panel?.orderFrontRegardless()
+        // Gentle fade + rise-in
+        if let target = panel?.frame.origin {
+            panel?.setFrameOrigin(NSPoint(x: target.x, y: target.y - 8))
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.18
+                ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                panel?.animator().alphaValue = 1
+                panel?.animator().setFrameOrigin(target)
+            }
+        }
 
         mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             guard let self = self else { return }
@@ -87,7 +97,13 @@ class ClipboardOverlayWindowController {
         removeMouseMonitor()
         let appToRestore = previousApp
         previousApp = nil
-        panel?.orderOut(nil)
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.12
+            self.panel?.animator().alphaValue = 0
+        }, completionHandler: { [weak self] in
+            self?.panel?.orderOut(nil)
+            self?.panel?.alphaValue = 1
+        })
         appToRestore?.activate(options: .activateIgnoringOtherApps)
         if pendingPaste {
             pendingPaste = false

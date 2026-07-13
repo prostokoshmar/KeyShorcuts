@@ -1,27 +1,23 @@
 import Cocoa
 import SwiftUI
 
-private class KeyableConversionPanel: NSPanel {
+private class KeyableTrayPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 }
 
-final class ConversionQueueWindowController {
+final class FileTrayWindowController {
     private var panel: NSPanel?
     private var mouseMonitor: Any?
     private(set) var isVisible = false
 
     init() {
-        let w: CGFloat = 500
-        let h: CGFloat = 560
+        let w: CGFloat = 380
+        let h: CGFloat = 480
         let screen = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let frame = NSRect(
-            x: screen.midX - w / 2,
-            y: screen.midY - h / 2,
-            width: w, height: h
-        )
+        let frame = NSRect(x: screen.midX - w / 2, y: screen.midY - h / 2, width: w, height: h)
 
-        let p = KeyableConversionPanel(
+        let p = KeyableTrayPanel(
             contentRect: frame,
             styleMask: [.borderless],
             backing: .buffered,
@@ -32,9 +28,10 @@ final class ConversionQueueWindowController {
         p.hasShadow = false
         p.level = .floating
         p.isFloatingPanel = true
+        p.isMovableByWindowBackground = true
         p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        let hosting = NSHostingView(rootView: ConversionQueueView(
+        let hosting = NSHostingView(rootView: FileTrayView(
             onDismiss: { [weak self] in self?.hide() }
         ))
         hosting.frame = frame
@@ -46,10 +43,12 @@ final class ConversionQueueWindowController {
     func show() {
         guard !isVisible else { return }
         isVisible = true
-        if let screen = NSScreen.main {
+        // Center on the screen under the mouse, like the other overlays.
+        let mouse = NSEvent.mouseLocation
+        if let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main {
             let sf = screen.frame
             let wf = panel?.frame ?? .zero
-            panel?.setFrameOrigin(NSPoint(x: sf.midX - wf.width / 2, y: sf.midY - wf.height / 2))
+            panel?.setFrameOrigin(NSPoint(x: sf.midX - wf.width / 2, y: sf.midY - wf.height / 2 - 8))
         }
         NSApp.activate(ignoringOtherApps: true)
         panel?.alphaValue = 0
@@ -77,8 +76,8 @@ final class ConversionQueueWindowController {
         isVisible = false
         if let m = mouseMonitor { NSEvent.removeMonitor(m); mouseMonitor = nil }
         NSAnimationContext.runAnimationGroup({ ctx in
-            ctx.duration = 0.12
-            self.panel?.animator().alphaValue = 0
+            ctx.duration = 0.13
+            panel?.animator().alphaValue = 0
         }, completionHandler: { [weak self] in
             self?.panel?.orderOut(nil)
             self?.panel?.alphaValue = 1

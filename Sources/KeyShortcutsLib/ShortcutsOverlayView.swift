@@ -121,9 +121,7 @@ struct CategorySectionView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title.uppercased())
                 .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(settings.cuteMode
-                    ? Color(red: 1, green: 0.45, blue: 0.72)
-                    : Color.secondary)
+                .foregroundStyle(settings.themeAccentSoft ?? Color.secondary)
                 .tracking(0.8)
 
             LazyVGrid(columns: columns, alignment: .leading, spacing: 6) {
@@ -150,9 +148,8 @@ struct ShortcutRowView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(settings.cuteMode
-            ? Color(red: 1, green: 0.08, blue: 0.45).opacity(0.07)
-            : Color.primary.opacity(0.04))
+        .background(settings.themeAccent.map { $0.opacity(0.07) }
+            ?? Color.primary.opacity(0.04))
         .cornerRadius(7)
     }
 }
@@ -162,9 +159,9 @@ struct KeyBadge: View {
     @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
-        let fg: Color   = settings.cuteMode ? Color(red: 1, green: 0.55, blue: 0.80) : .primary
-        let bg: Color   = settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45).opacity(0.14) : .primary.opacity(0.1)
-        let bdr: Color  = settings.cuteMode ? Color(red: 1, green: 0.08, blue: 0.45).opacity(0.32) : .primary.opacity(0.15)
+        let fg: Color   = settings.themeAccentSoft ?? .primary
+        let bg: Color   = settings.themeAccent.map { $0.opacity(0.14) } ?? .primary.opacity(0.1)
+        let bdr: Color  = settings.themeAccent.map { $0.opacity(0.32) } ?? .primary.opacity(0.15)
 
         return Text(label)
             .font(.system(size: 11, weight: .medium, design: .monospaced))
