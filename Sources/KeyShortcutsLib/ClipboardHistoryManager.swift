@@ -15,7 +15,7 @@ class ClipboardHistoryManager: ObservableObject {
 
     private init() {
         loadPersistedTextItems()
-        startPolling()
+        if AppSettings.shared.clipboardCaptureEnabled { startPolling() }
         NotificationCenter.default.addObserver(self, selector: #selector(limitChanged),
                                                name: .clipboardLimitChanged, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(pollingIntervalChanged),
@@ -284,7 +284,7 @@ class ClipboardHistoryManager: ObservableObject {
     }
 
     @objc private func pollingIntervalChanged() {
-        startPolling()
+        if AppSettings.shared.clipboardCaptureEnabled { startPolling() }
     }
 
     @objc private func autoSelectCopyChanged() {

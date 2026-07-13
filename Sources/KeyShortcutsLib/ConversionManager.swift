@@ -270,8 +270,15 @@ final class ConversionManager: ObservableObject {
     }
 
     private func pruneCompleted() {
-        let done = queue.filter { if case .done = $0.state { return true }; return false }
-        recentResults = Array((recentResults + done).suffix(10))
+        // Keep failures in Recent too, so the error message isn't lost when the row
+        // is pruned from the pending queue.
+        let finished = queue.filter {
+            switch $0.state {
+            case .done, .failed: return true
+            default:             return false
+            }
+        }
+        recentResults = Array((recentResults + finished).suffix(10))
         queue.removeAll { item in
             switch item.state {
             case .done, .dismissed: return true

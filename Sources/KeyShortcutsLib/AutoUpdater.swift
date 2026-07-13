@@ -83,6 +83,14 @@ final class AutoUpdater {
         win.makeKeyAndOrderFront(nil)
 
         URLSession.shared.downloadTask(with: url) { [weak self] tmpURL, _, error in
+            // The system deletes tmpURL as soon as this handler returns, so the file
+            // must be moved somewhere safe before hopping to the main queue.
+            var savedURL: URL?
+            if let tmpURL {
+                let dest = FileManager.default.temporaryDirectory
+                    .appendingPathComponent("KSUpdate_\(UUID().uuidString).zip")
+                savedURL = (try? FileManager.default.moveItem(at: tmpURL, to: dest)) == nil ? nil : dest
+            }
             DispatchQueue.main.async {
                 win.orderOut(nil)
                 guard let self else { return }
@@ -90,8 +98,11 @@ final class AutoUpdater {
                     self.showError("Download failed: \(error.localizedDescription)")
                     return
                 }
-                guard let tmpURL else { return }
-                self.installUpdate(zipURL: tmpURL)
+                guard let savedURL else {
+                    self.showError("Download failed: could not save the update file.")
+                    return
+                }
+                self.installUpdate(zipURL: savedURL)
             }
         }.resume()
     }

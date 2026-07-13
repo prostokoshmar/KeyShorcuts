@@ -61,7 +61,7 @@ The Preferences → Convert tab shows which engines are available and links to i
 
 **Settings:**
 - **Watched folders** — add/remove via folder picker
-- **Auto-approve** (default off) — skip the approval prompt and convert silently
+- **Auto-approve** (default on) — skip the approval prompt and convert silently
 - **Notifications** — toggle detection and completion alerts
 - **Output mode** — Keep both (default) / Replace original / Append suffix
 

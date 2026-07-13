@@ -353,7 +353,7 @@ private struct ConvertTab: View {
 
                     Toggle("Auto-approve conversions", isOn: $settings.conversionAutoApprove)
                         .toggleStyle(.switch)
-                    Text("When ON, files are converted automatically without prompting. When OFF (default), each conversion requires your approval.")
+                    Text("When ON (default), files are converted automatically without prompting. When OFF, each conversion requires your approval.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
 

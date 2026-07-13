@@ -233,14 +233,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // Status-bar icon badge for combined keep-awake + pending conversions
         // Only update if keep-awake is off (keep-awake already owns the badge when on)
-        if !keepAwakeEnabled && pending > 0 {
+        if !keepAwakeEnabled {
+            applyIdleStatusIcon()
+        }
+        // If keep-awake is active it already controls the icon; don't override it here.
+    }
+
+    // Status icon when keep-awake is off: pending-conversion badge or plain keyboard.
+    private func applyIdleStatusIcon() {
+        let pending = ConversionManager.shared.pendingCount
+        if pending > 0 {
             setStatusBarImage(symbolName: "arrow.triangle.2.circlepath", desc: "Key Shortcuts – \(pending) conversion(s) pending")
             statusItem.button?.title = " \(pending)"
-        } else if !keepAwakeEnabled {
+        } else {
             setStatusBarImage(symbolName: "keyboard", desc: "Key Shortcuts")
             statusItem.button?.title = ""
         }
-        // If keep-awake is active it already controls the icon; don't override it here.
     }
 
     // MARK: - Keep Awake actions
@@ -272,6 +280,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let window = NSPanel(contentViewController: NSHostingController(rootView: view))
         window.title = "Custom Duration"
         window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false  // we keep a strong reference and reuse it
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -302,13 +311,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if minutes > 0 {
             let seconds = minutes * 60
             keepAwakeEndTime = Date().addingTimeInterval(seconds)
-            keepAwakeTimer = Timer.scheduledTimer(withTimeInterval: seconds, repeats: false) { [weak self] _ in
+            // .common mode so both timers keep firing while the status-bar menu is
+            // open (menu tracking blocks default-mode timers — and the menu is
+            // exactly where the countdown is displayed).
+            let expiry = Timer(timeInterval: seconds, repeats: false) { [weak self] _ in
                 self?.stopKeepAwake()
             }
+            RunLoop.main.add(expiry, forMode: .common)
+            keepAwakeTimer = expiry
             // Refresh the icon badge and menu title every 30 s while the timer ticks
-            menuUpdateTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            let refresh = Timer(timeInterval: 30, repeats: true) { [weak self] _ in
                 self?.refreshKeepAwakeUI()
             }
+            RunLoop.main.add(refresh, forMode: .common)
+            menuUpdateTimer = refresh
         }
 
         refreshKeepAwakeUI()
@@ -341,8 +357,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 statusItem.button?.title = ""
             }
         } else {
-            setStatusBarImage(symbolName: "keyboard", desc: "Key Shortcuts")
-            statusItem.button?.title = ""
+            applyIdleStatusIcon()
         }
 
         // Parent menu item title
@@ -427,6 +442,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let window = NSWindow(contentViewController: hosting)
         window.title = "Key Shortcuts Preferences"
         window.styleMask = [.titled, .closable]
+        window.isReleasedWhenClosed = false  // we keep a strong reference and reuse it
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

@@ -36,7 +36,12 @@ final class FFmpegEngine: ConversionEngine {
             .appendingPathComponent("\(UUID().uuidString).progress")
         defer { try? FileManager.default.removeItem(at: progressFile) }
 
-        var args = ["-y", "-i", item.sourceURL.path]
+        // Total duration in µs, for converting out_time_us into a 0…1 fraction.
+        let totalUs = probeDurationSeconds(ffmpeg: ffmpeg, input: item.sourceURL).map { $0 * 1_000_000 }
+
+        // -nostats: without it ffmpeg streams stats to stderr for the whole run,
+        // which can fill the pipe buffer and deadlock long conversions.
+        var args = ["-y", "-nostats", "-loglevel", "error", "-i", item.sourceURL.path]
         args += extraArgs(for: item.targetFormat)
         args += ["-progress", progressFile.path, outputURL.path]
 
@@ -53,9 +58,14 @@ final class FFmpegEngine: ConversionEngine {
         let deadline = Date().addingTimeInterval(3600)
         while process.isRunning && Date() < deadline {
             Thread.sleep(forTimeInterval: 0.5)
-            if let p = readFFmpegProgress(progressFile) {
+            if let p = readFFmpegProgress(progressFile, totalUs: totalUs) {
                 progress(p)
             }
+        }
+        if process.isRunning {
+            process.terminate()
+            process.waitUntilExit()
+            throw ConversionError.processError("ffmpeg timed out after 1 hour")
         }
         process.waitUntilExit()
 
@@ -89,21 +99,38 @@ final class FFmpegEngine: ConversionEngine {
         }
     }
 
-    // Parse out:time=HH:MM:SS.ms and out:duration from ffmpeg -progress output.
-    // Returns 0…1 fraction if both are readable, nil otherwise.
-    private func readFFmpegProgress(_ url: URL) -> Double? {
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+    // Read the source's total duration from ffmpeg's "-i" banner on stderr
+    // ("Duration: HH:MM:SS.ms, ..."). Returns nil for streams with no duration.
+    private func probeDurationSeconds(ffmpeg: String, input: URL) -> Double? {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: ffmpeg)
+        process.arguments = ["-hide_banner", "-i", input.path]
+        let errPipe = Pipe()
+        process.standardError = errPipe
+        process.standardOutput = FileHandle.nullDevice
+        guard (try? process.run()) != nil else { return nil }
+        let data = errPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+
+        guard let text = String(data: data, encoding: .utf8),
+              let range = text.range(of: #"Duration: (\d+):(\d+):(\d+(?:\.\d+)?)"#, options: .regularExpression)
+        else { return nil }
+        let parts = text[range].dropFirst("Duration: ".count).split(separator: ":")
+        guard parts.count == 3,
+              let h = Double(parts[0]), let m = Double(parts[1]), let s = Double(parts[2])
+        else { return nil }
+        return h * 3600 + m * 60 + s
+    }
+
+    // Parse out_time_us from ffmpeg's -progress file and convert to a 0…1 fraction.
+    private func readFFmpegProgress(_ url: URL, totalUs: Double?) -> Double? {
+        guard let totalUs, totalUs > 0,
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
         var outTimeUs: Double?
-        let durationUs: Double? = nil  // not emitted in -progress file; would need to parse stderr
-        for line in text.components(separatedBy: "\n") {
-            if line.hasPrefix("out_time_us="), let v = Double(line.dropFirst("out_time_us=".count)) {
-                outTimeUs = v
-            }
-            if line.hasPrefix("Duration:") {
-                // Not in progress file — ignore
-            }
+        for line in text.components(separatedBy: "\n") where line.hasPrefix("out_time_us=") {
+            if let v = Double(line.dropFirst("out_time_us=".count)) { outTimeUs = v }
         }
-        guard let t = outTimeUs, let d = durationUs, d > 0 else { return outTimeUs != nil ? nil : nil }
-        return min(1.0, t / d)
+        guard let t = outTimeUs else { return nil }
+        return min(1.0, t / totalUs)
     }
 }
