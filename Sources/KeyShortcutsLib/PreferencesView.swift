@@ -276,7 +276,7 @@ private struct AppearanceTab: View {
 
                     Toggle("Animate menu bar icon", isOn: $settings.menuBarIconAnimated)
                         .toggleStyle(.switch)
-                    Text("The icon gives a little bounce on events — Keep Awake toggles, new conversions, clipboard captures. While Keep Awake is off the cat naps in changing poses with a drifting ᶻᶻᶻ; when it's on, it spends its day walking, sitting, grooming, eating, stretching, and playing with its ball.")
+                    Text("The icon gives a little bounce on events — Keep Awake toggles, new conversions, clipboard captures. While Keep Awake is off the cat naps in changing poses with a drifting ᶻᶻᶻ; when it's on, it spends its day walking, sitting, grooming its tail, eating, stretching, and playing with its ball — with the occasional meow.")
                         .font(.caption).foregroundStyle(.tertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

@@ -70,6 +70,12 @@ enum CatIcon {
             default:        // sit and watch where the ball went
                 drawSittingCat(offsetX: 0.3, facingRight: true, at: t, color: color)
             }
+            // Occasional random meows while sitting (head at the right edge,
+            // so the word drifts left; at the left edge it drifts right)
+            drawMeow(at: t, window: (7, 13), slot: 0,
+                     mouth: NSPoint(x: 15.6, y: 11.2), driftX: -2.5, color: color)
+            drawMeow(at: t, window: (48, 56), slot: 1,
+                     mouth: NSPoint(x: 17.4, y: 10.6), driftX: 2, color: color)
         }
     }
 
@@ -367,37 +373,29 @@ enum CatIcon {
         withFacing(facingRight, offsetX: offsetX, poseWidth: 17.2) {
             color.set()
 
-            // Calm tail while concentrating
+            // Lick cycle: the head dips toward the tail and the tail tip
+            // rises to meet it
+            let lick = (CGFloat(sin(t * 4.2)) + 1) / 2   // 0 → 1 → 0
+
+            NSBezierPath(ovalIn: NSRect(x: 2.0, y: 1.3, width: 8.6, height: 8.6)).fill()
+            NSBezierPath(ovalIn: NSRect(x: 7.8, y: 1.3, width: 5.6, height: 9.6)).fill()
+
+            // Tail curled around the front into a clear hook under the
+            // muzzle, its tip rising toward each lick
             strokePath(width: 1.7) { p in
-                p.move(to: NSPoint(x: 4.6, y: 2.6))
-                p.curve(to: NSPoint(x: 0.9, y: 2.2 + CGFloat(sin(t * 1.1)) * 0.6),
-                        controlPoint1: NSPoint(x: 3.0, y: 1.2),
-                        controlPoint2: NSPoint(x: 1.2, y: 1.0))
+                p.move(to: NSPoint(x: 3.0, y: 2.2))
+                p.curve(to: NSPoint(x: 15.8, y: 3.2 + lick * 1.6),
+                        controlPoint1: NSPoint(x: 5.5, y: -0.2),
+                        controlPoint2: NSPoint(x: 12.0, y: 0.2))
             }
 
-            NSBezierPath(ovalIn: NSRect(x: 3.4, y: 1.3, width: 8.6, height: 8.6)).fill()
-            NSBezierPath(ovalIn: NSRect(x: 9.2, y: 1.3, width: 5.6, height: 9.6)).fill()
-
-            // Wash cycle: the paw sweeps up over the face and back down,
-            // and the head bows into each stroke
-            let wipe = (CGFloat(sin(t * 4.2)) + 1) / 2   // 0 → 1 → 0
-            let bow = wipe * 1.5
-
-            NSBezierPath(ovalIn: NSRect(x: 10.9, y: 8.8 - bow, width: 6.4, height: 6.4)).fill()
-            ear(from: NSPoint(x: 11.6, y: 13.7 - bow), base: NSPoint(x: 13.6, y: 14.5 - bow),
-                tip: NSPoint(x: 12.0, y: 16.7 - bow))
-            ear(from: NSPoint(x: 14.8, y: 14.5 - bow), base: NSPoint(x: 16.9, y: 13.7 - bow),
-                tip: NSPoint(x: 17.0, y: 16.5 - bow))
-
-            // Fore-leg bowing out in front of the chest so the whole sweep
-            // stays proud of the silhouette and reads at menu-bar size
-            let tip = NSPoint(x: 14.8 + wipe * 2.6, y: 3.8 + wipe * 6.2)
-            strokePath(width: 1.8) { p in
-                p.move(to: NSPoint(x: 13.8, y: 2.8))
-                p.curve(to: tip,
-                        controlPoint1: NSPoint(x: 16.8, y: 4.2),
-                        controlPoint2: NSPoint(x: 17.8, y: 6.6))
-            }
+            // Head bowed over the tail, nodding into each lick
+            let nod = lick * 1.6
+            NSBezierPath(ovalIn: NSRect(x: 9.8, y: 7.0 - nod, width: 6.4, height: 6.4)).fill()
+            ear(from: NSPoint(x: 10.8, y: 11.7 - nod), base: NSPoint(x: 12.8, y: 12.5 - nod),
+                tip: NSPoint(x: 11.2, y: 14.7 - nod))
+            ear(from: NSPoint(x: 14.0, y: 12.5 - nod), base: NSPoint(x: 16.1, y: 11.7 - nod),
+                tip: NSPoint(x: 16.2, y: 14.5 - nod))
         }
     }
 
@@ -491,46 +489,111 @@ enum CatIcon {
         }
     }
 
-    /// Play crouch: body low, tail flicking, a front paw batting a ball
-    /// that gets knocked away, bounces, and rolls back.
+    /// Play crouch: one shared 3 s hit cycle — the paw winds up (with a
+    /// pre-pounce butt wiggle), strikes, and the ball launches on contact,
+    /// bounces away, then rolls back just as the next wind-up begins.
     private static func drawPlayingCat(offsetX: CGFloat, facingRight: Bool,
                                        at t: TimeInterval, color: NSColor) {
         withFacing(facingRight, offsetX: offsetX, poseWidth: 32) {
             color.set()
 
-            // Excited tail, whipping up and down
-            let flick = CGFloat(sin(t * 4)) * 1.5
-            strokePath(width: 1.6) { p in
-                p.move(to: NSPoint(x: 3.8, y: 6.2))
-                p.curve(to: NSPoint(x: 0.9, y: 10.6 + flick),
-                        controlPoint1: NSPoint(x: 2.2, y: 7.2),
-                        controlPoint2: NSPoint(x: 0.7, y: 8.6))
+            let p = CGFloat(t.truncatingRemainder(dividingBy: 3.0) / 3.0)
+
+            // Paw tip x through the cycle: wind back → lunge → retract → rest
+            let restX: CGFloat = 17.2, woundX: CGFloat = 16.0, hitX: CGFloat = 19.8
+            let pawX: CGFloat
+            if p >= 0.86 {
+                let q = (p - 0.86) / 0.14
+                pawX = restX + (woundX - restX) * q * q
+            } else if p < 0.08 {
+                pawX = woundX + (hitX - woundX) * (p / 0.08)
+            } else if p < 0.30 {
+                pawX = hitX + (restX - hitX) * ((p - 0.08) / 0.22)
+            } else {
+                pawX = restX
+            }
+            // Head and shoulders lean into the strike with the paw
+            let lunge = max(0, pawX - restX) * 0.35
+            // Pre-pounce wiggle while wound up
+            let wiggle = p >= 0.86 ? CGFloat(sin(t * 22)) * 0.35 : 0
+
+            // Tail whips hardest right after the strike, then settles
+            let flick = CGFloat(sin(p * .pi * 6)) * (1.8 - p * 1.1)
+            strokePath(width: 1.6) { path in
+                path.move(to: NSPoint(x: 3.8, y: 6.2))
+                path.curve(to: NSPoint(x: 0.9, y: 10.6 + flick),
+                           controlPoint1: NSPoint(x: 2.2, y: 7.2),
+                           controlPoint2: NSPoint(x: 0.7, y: 8.6))
             }
 
             // Crouched body: haunch up a touch, chest low
-            NSBezierPath(ovalIn: NSRect(x: 3.0, y: 2.8, width: 7.4, height: 5.6)).fill()
-            NSBezierPath(ovalIn: NSRect(x: 4.4, y: 2.0, width: 11.2, height: 4.6)).fill()
+            NSBezierPath(ovalIn: NSRect(x: 3.0, y: 2.8 + wiggle, width: 7.4, height: 5.6)).fill()
+            NSBezierPath(ovalIn: NSRect(x: 4.4 + lunge * 0.5, y: 2.0, width: 11.2, height: 4.6)).fill()
 
             // Head low and forward, locked on the ball
-            NSBezierPath(ovalIn: NSRect(x: 13.8, y: 2.8, width: 5.8, height: 5.8)).fill()
-            ear(from: NSPoint(x: 14.2, y: 7.4), base: NSPoint(x: 16.1, y: 8.4),
-                tip: NSPoint(x: 14.5, y: 10.5))
-            ear(from: NSPoint(x: 17.1, y: 8.4), base: NSPoint(x: 19.0, y: 7.2),
-                tip: NSPoint(x: 19.2, y: 10.1))
+            NSBezierPath(ovalIn: NSRect(x: 13.8 + lunge, y: 2.8, width: 5.8, height: 5.8)).fill()
+            ear(from: NSPoint(x: 14.2 + lunge, y: 7.4), base: NSPoint(x: 16.1 + lunge, y: 8.4),
+                tip: NSPoint(x: 14.5 + lunge, y: 10.5))
+            ear(from: NSPoint(x: 17.1 + lunge, y: 8.4), base: NSPoint(x: 19.0 + lunge, y: 7.2),
+                tip: NSPoint(x: 19.2 + lunge, y: 10.1))
 
-            // Batting paw, jabbing at the ball
-            let bat = CGFloat(sin(t * 5.5))
-            strokePath(width: 1.7) { p in
-                p.move(to: NSPoint(x: 15.2, y: 3.8))
-                p.line(to: NSPoint(x: 17.6 + bat * 1.6, y: 1.6))
+            // Batting paw
+            strokePath(width: 1.7) { path in
+                path.move(to: NSPoint(x: 15.2 + lunge, y: 3.8))
+                path.line(to: NSPoint(x: pawX, y: 1.6))
             }
 
-            // The ball: knocked away, small bounces, rolls back (3 s cycle)
-            let bph = CGFloat(t.truncatingRemainder(dividingBy: 3.0) / 3.0)
-            let ballX = 20.5 + sin(bph * .pi) * 8.5
-            let ballY = 2.2 + abs(sin(bph * .pi * 3)) * 1.6 * (1 - bph)
+            // The ball: still until the paw connects, launched with decaying
+            // bounces, a beat at the far edge, then rolls back to the paw
+            let ballRest: CGFloat = 20.6, ballFar: CGFloat = 28.6
+            var ballX = ballRest
+            var ballY: CGFloat = 1.6
+            if p >= 0.08, p < 0.52 {
+                let q = (p - 0.08) / 0.44
+                let out = 1 - (1 - q) * (1 - q)
+                ballX = ballRest + (ballFar - ballRest) * out
+                ballY = 1.6 + abs(sin(q * .pi * 2.2)) * 2.4 * (1 - q)
+            } else if p >= 0.58 {
+                let q = min(1, (p - 0.58) / 0.36)
+                let s = q * q * (3 - 2 * q)
+                ballX = ballFar - (ballFar - ballRest) * s
+            } else if p >= 0.52 {
+                ballX = ballFar
+            }
             NSBezierPath(ovalIn: NSRect(x: ballX - 1.5, y: ballY - 1.5,
                                         width: 3.0, height: 3.0)).fill()
         }
+    }
+
+    // MARK: - Occasional meows
+
+    /// Deterministic pseudo-random value in [0, 1) from an integer seed.
+    private static func hash(_ seed: Int) -> CGFloat {
+        let x = sin(Double(seed) * 12.9898 + 78.233) * 43758.5453
+        return CGFloat(x - floor(x))
+    }
+
+    /// In roughly half the loops, at a random moment inside the window, a
+    /// tiny "meow" drifts up from the muzzle, growing and fading.
+    private static func drawMeow(at t: TimeInterval, window: (start: Double, end: Double),
+                                 slot: Int, mouth: NSPoint, driftX: CGFloat, color: NSColor) {
+        let loop = Int(t / 56)
+        let seed = loop &* 7 &+ slot &* 131
+        guard hash(seed) < 0.55 else { return }
+        let life = 1.8
+        let latest = window.end - life - 0.2
+        let start = window.start + 0.3
+            + Double(hash(seed &+ 1)) * (latest - window.start - 0.3)
+        let age = t.truncatingRemainder(dividingBy: 56) - start
+        guard age >= 0, age < life else { return }
+        let p = CGFloat(age / life)
+        let alpha = p < 0.15 ? p / 0.15 : 1 - (p - 0.15) / 0.85
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 4.2 + p * 1.4, weight: .bold),
+            .foregroundColor: color.withAlphaComponent(alpha * 0.95),
+        ]
+        ("meow" as NSString).draw(
+            at: NSPoint(x: mouth.x + p * driftX, y: mouth.y + p * 2.2),
+            withAttributes: attrs)
     }
 }
